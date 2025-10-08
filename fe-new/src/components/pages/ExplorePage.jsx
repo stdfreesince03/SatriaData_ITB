@@ -408,8 +408,8 @@ function VideoModal({ video, onClose }) {
                                 ref={iframeRef}
                                 src={video.embed_url}
                                 className="w-full h-full"
-                                allow="autoplay; fullscreen"  // ✅ Added fullscreen
-                                loading="eager"  // ✅ Load immediately, not lazy
+                                allow="autoplay; fullscreen"
+                                loading="eager"
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-400">
