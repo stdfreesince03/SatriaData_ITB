@@ -17,7 +17,6 @@ export default function HomePage({ searchQuery, inputValue, setInputValue, handl
             <SearchInterestSection searchQuery={searchQuery} />
             <MadeWithTrendsSection />
             <GetStartedSection />
-            <NewsletterSection />
         </>
     );
 }

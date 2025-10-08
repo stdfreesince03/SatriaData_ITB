@@ -174,12 +174,7 @@ export default function HeroSection({ searchQuery, inputValue, setInputValue, ha
 
     const getIconForType = (type) => {
         switch(type) {
-            case 'category': return '📁';
-            case 'hashtag': return '#️⃣';
-            case 'creator': return '👤';
-            case 'phrase': return '💬';
-            case 'topic_phrase': return '🔍';
-            default: return '🔍';
+            default: return '';
         }
     };
 
@@ -191,7 +186,7 @@ export default function HeroSection({ searchQuery, inputValue, setInputValue, ha
                         Explore what <span className="font-medium">Satria Data 2025</span>
                     </h1>
                     <h1 className="text-4xl font-normal text-gray-900 mb-6">
-                        is watching right now
+                        is looking for right now
                     </h1>
                 </div>
 

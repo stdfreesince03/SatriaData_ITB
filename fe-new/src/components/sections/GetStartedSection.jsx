@@ -36,22 +36,6 @@ export default function GetStartedSection() {
                         </div>
                     ))}
                 </div>
-
-                <div className="text-center mb-12">
-                    <button className="text-blue-600 hover:bg-blue-50 px-6 py-2 rounded-full font-medium inline-flex items-center gap-2">
-                        <Play className="w-4 h-4" />
-                        More videos
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {resources.map((resource, idx) => (
-                        <div key={idx} className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                            <div className="text-4xl mb-4">{resource.icon}</div>
-                            <h3 className="text-base font-medium text-gray-900">{resource.title}</h3>
-                        </div>
-                    ))}
-                </div>
             </div>
         </section>
     );

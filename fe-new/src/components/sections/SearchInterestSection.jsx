@@ -22,7 +22,7 @@ export default function SearchInterestSection({ searchQuery }) {
     return (
         <section className="px-6 py-12 bg-gray-50">
             <div className="max-w-7xl mx-auto">
-                <p className="text-sm text-gray-500 mb-6">Search interest, past 24 hours</p>
+                <p className="text-sm text-gray-500 mb-6">Search interest...</p>
 
                 <div className="bg-white rounded-lg p-6 shadow-sm mb-4">
                     <div className="flex items-center justify-between mb-6">
