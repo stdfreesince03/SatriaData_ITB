@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 import config
 from utils.data_loaders import extract_topic_keywords
-from routes import search, explore
+from routes import search, explore, trending
 
 # Global variables
 df = None
@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
 
     # Load data
     df = pd.read_parquet(config.VIDEOS_FILE)
+    print(f"📊 Loaded videos.parquet with {len(df)} rows")
 
     with open(config.TOPICS_FILE, "r") as f:
         topics_data = json.load(f)
@@ -35,7 +36,7 @@ async def lifespan(app: FastAPI):
     # Load vidlink mapping
     try:
         vidlink_map = pd.read_csv(config.VIDLINK_MAP_FILE)
-
+        print(f"✅ Loaded {len(vidlink_map)} video links")
 
         # Extract numeric Id from vidlink name (e.g., "0249.mp4" -> 249)
         def extract_id(name):
@@ -45,6 +46,8 @@ async def lifespan(app: FastAPI):
             return int(match.group(1)) if match else None
 
         vidlink_map['video_id'] = vidlink_map['name'].apply(extract_id)
+
+        print(f"📋 Sample name -> video_id: {vidlink_map[['name', 'video_id']].head(3).to_dict('records')}")
 
         # Merge on Id
         df = df.merge(
@@ -60,6 +63,9 @@ async def lifespan(app: FastAPI):
             'name': 'drive_filename'
         }, inplace=True)
 
+        print(f"✅ Merged vidlink data")
+        print(f"📊 Videos with drive_file_id: {df['drive_file_id'].notna().sum()}/{len(df)}")
+
         # Create embed URLs from Google Drive
         df['embed_url'] = df['drive_file_id'].apply(
             lambda x: f"https://drive.google.com/file/d/{x}/preview" if pd.notna(x) else None
@@ -70,6 +76,8 @@ async def lifespan(app: FastAPI):
             lambda x: f"https://drive.google.com/thumbnail?id={x}&sz=w400" if pd.notna(x) else None
         )
 
+        print(f"✅ Created embed URLs for {df['embed_url'].notna().sum()} videos")
+        print(f"✅ Thumbnail URLs available for {df['thumbnail_url'].notna().sum()} videos")
 
         # Show sample
         sample = df[df['embed_url'].notna()].head(1)
@@ -94,6 +102,13 @@ async def lifespan(app: FastAPI):
     # Share with route modules
     search.set_globals(topic_keywords, hashtag_stats, topics_data)
     explore.set_globals(df)
+    trending.set_globals(df)
+
+    print(f"✅ Loaded {len(df)} videos")
+    print(f"✅ Loaded {len(topics_data)} topics")
+    print(f"✅ Loaded {len(hashtag_stats)} hashtags")
+    print(f"✅ Extracted keywords for {len(topic_keywords)} topics")
+
     yield
 
     print("Shutting down...")
@@ -112,6 +127,7 @@ app.add_middleware(
 # Register routers
 app.include_router(search.router)
 app.include_router(explore.router)
+app.include_router(trending.router)
 
 
 @app.get("/")
@@ -131,4 +147,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host=config.API_HOST, port=config.API_PORT, reload=True)
-    #run: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
