@@ -45,6 +45,14 @@ export default function GoogleTrendsApp() {
         }
     };
 
+    // Handle clicking on trending topics in SearchInterestSection
+    const handleTrendingTopicClick = (query) => {
+        setInputValue(query);
+        setSearchQuery(query);
+        setExploreQuery(query);
+        setActiveTab('explore');
+    };
+
     return (
         <div className="min-h-screen bg-white">
             <Header activeTab={activeTab} setActiveTab={setActiveTab} />

@@ -7,13 +7,6 @@ const tutorials = [
     { title: "Trending Now", color: "bg-green-600" }
 ];
 
-const resources = [
-    { title: "What is Google Trends?", icon: "📊" },
-    { title: "Basics of Google Trends", icon: "📈" },
-    { title: "Understanding the data", icon: "📉" },
-    { title: "Advanced Google Trends", icon: "🗺️" }
-];
-
 export default function GetStartedSection() {
     return (
         <section className="px-6 py-16 bg-gradient-to-b from-blue-50 to-white">

@@ -4,7 +4,14 @@ import MadeWithTrendsSection from '../sections/MadeWithTrendsSection';
 import GetStartedSection from '../sections/GetStartedSection';
 import NewsletterSection from '../sections/NewsletterSection';
 
-export default function HomePage({ searchQuery, inputValue, setInputValue, handleSearch, isSearching }) {
+export default function HomePage({
+                                     searchQuery,
+                                     inputValue,
+                                     setInputValue,
+                                     handleSearch,
+                                     isSearching,
+                                     onTrendingTopicClick
+                                 }) {
     return (
         <>
             <HeroSection
@@ -14,9 +21,11 @@ export default function HomePage({ searchQuery, inputValue, setInputValue, handl
                 handleSearch={handleSearch}
                 isSearching={isSearching}
             />
-            <SearchInterestSection searchQuery={searchQuery} />
+            <SearchInterestSection
+                onSearchClick={onTrendingTopicClick}
+            />
             <MadeWithTrendsSection />
-            <GetStartedSection />
+            {/*<GetStartedSection />*/}
         </>
     );
 }
