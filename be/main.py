@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 import config
 from utils.data_loaders import extract_topic_keywords
-from routes import search, explore, trending
+from routes import search, explore, trending,events
 
 # Global variables
 df = None
@@ -21,7 +21,7 @@ topic_keywords = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global df, topics_data, hashtag_stats, doc_topics, topic_keywords
+    global df, topics_data, hashtag_stats, doc_topics, topic_keywords, event_data
 
     # Load data
     df = pd.read_parquet(config.VIDEOS_FILE)
@@ -37,6 +37,8 @@ async def lifespan(app: FastAPI):
     try:
         vidlink_map = pd.read_csv(config.VIDLINK_MAP_FILE)
         print(f"✅ Loaded {len(vidlink_map)} video links")
+
+        event_data = pd.read_parquet(config.EVENTS_FILE)
 
         # Extract numeric Id from vidlink name (e.g., "0249.mp4" -> 249)
         def extract_id(name):
@@ -103,6 +105,8 @@ async def lifespan(app: FastAPI):
     search.set_globals(topic_keywords, hashtag_stats, topics_data)
     explore.set_globals(df)
     trending.set_globals(df)
+    events.set_globals(event_data,df)
+
 
     print(f"✅ Loaded {len(df)} videos")
     print(f"✅ Loaded {len(topics_data)} topics")
@@ -128,6 +132,7 @@ app.add_middleware(
 app.include_router(search.router)
 app.include_router(explore.router)
 app.include_router(trending.router)
+app.include_router(events.router)
 
 
 @app.get("/")

@@ -25,9 +25,9 @@ export default function MadeWithTrendsSection() {
     return (
         <section className="px-6 py-16 bg-white">
             <div className="max-w-7xl mx-auto">
-                <h2 className="text-3xl font-normal text-gray-900 text-center mb-3">Made with Trends</h2>
+                <h2 className="text-3xl font-normal text-gray-900 text-center mb-3">The Story</h2>
                 <p className="text-gray-600 text-center mb-12">
-                    See how Google Trends is being used across the world, by newsrooms, charities, and more
+                    See narratives and events, what Satria Data 2025 is about
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
