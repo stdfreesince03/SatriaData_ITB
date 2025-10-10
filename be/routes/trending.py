@@ -257,3 +257,296 @@ def get_overall_viral(limit: int = 50):
             "items": videos
         }]
     }
+
+@router.get("/top-topics")
+def get_top_topics(limit: int = 10, category: str = None):
+    """Get top topics (categories) by video count and engagement."""
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    # Apply category filter if specified
+    working_df = df.copy()
+    if category and category != 'All':
+        working_df = working_df[working_df['category'] == category]
+
+    if len(working_df) == 0:
+        return {"topics": []}
+
+    category_stats = working_df.groupby('category').agg({
+        'Id': 'count',
+        'view_count': 'sum',
+        'engagement_rate': 'mean'
+    }).reset_index()
+
+    category_stats.columns = ['topic', 'video_count', 'total_views', 'avg_engagement']
+    category_stats = category_stats.sort_values('video_count', ascending=False).head(limit)
+
+    topics = []
+    for _, row in category_stats.iterrows():
+        topics.append({
+            "topic": row['topic'],
+            "video_count": int(row['video_count']),
+            "total_views": int(row['total_views']),
+            "trend": "↗️"
+        })
+
+    return {"topics": topics}
+
+
+@router.get("/relevant-topics")
+def get_relevant_topics(q: str, limit: int = 10, category: str = None):
+    """Get topics relevant to search query."""
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    query_lower = q.lower()
+    relevant = df[
+        df['caption'].str.lower().str.contains(query_lower, na=False) |
+        df['category'].str.lower().str.contains(query_lower, na=False)
+    ]
+
+    # Apply category filter if specified
+    if category and category != 'All':
+        relevant = relevant[relevant['category'] == category]
+
+    if len(relevant) == 0:
+        return {"topics": []}
+
+    category_stats = relevant.groupby('category').agg({
+        'Id': 'count',
+        'view_count': 'sum',
+        'engagement_rate': 'mean'
+    }).reset_index()
+
+    category_stats.columns = ['topic', 'video_count', 'total_views', 'avg_engagement']
+    category_stats = category_stats.sort_values('video_count', ascending=False).head(limit)
+
+    topics = []
+    for _, row in category_stats.iterrows():
+        topics.append({
+            "topic": row['topic'],
+            "video_count": int(row['video_count']),
+            "total_views": int(row['total_views']),
+            "trend": "↗️"
+        })
+
+    return {"topics": topics}
+
+
+@router.get("/top-creators")
+def get_top_creators(limit: int = 10, category: str = None):
+    """Get top creators by engagement and followers."""
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    # Apply category filter if specified
+    working_df = df.copy()
+    if category and category != 'All':
+        working_df = working_df[working_df['category'] == category]
+
+    if len(working_df) == 0:
+        return {"creators": []}
+
+    creator_stats = working_df.groupby('owner_username').agg({
+        'Id': 'count',
+        'view_count': 'sum',
+        'like_count': 'sum',
+        'engagement_rate': 'mean'
+    }).reset_index()
+
+    creator_stats.columns = ['creator', 'video_count', 'total_views', 'total_likes', 'avg_engagement']
+    creator_stats = creator_stats.sort_values('avg_engagement', ascending=False).head(limit)
+
+    creators = []
+    for _, row in creator_stats.iterrows():
+        creators.append({
+            "creator": row['creator'],
+            "video_count": int(row['video_count']),
+            "total_views": int(row['total_views']),
+            "engagement": f"{float(row['avg_engagement']) * 100:.1f}%"
+        })
+
+    return {"creators": creators}
+
+
+@router.get("/relevant-creators")
+def get_relevant_creators(q: str, limit: int = 10, category: str = None):
+    """Get creators relevant to search query."""
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    query_lower = q.lower()
+    relevant = df[
+        df['caption'].str.lower().str.contains(query_lower, na=False) |
+        df['owner_username'].str.lower().str.contains(query_lower, na=False)
+    ]
+
+    # Apply category filter if specified
+    if category and category != 'All':
+        relevant = relevant[relevant['category'] == category]
+
+    if len(relevant) == 0:
+        return {"creators": []}
+
+    creator_stats = relevant.groupby('owner_username').agg({
+        'Id': 'count',
+        'view_count': 'sum',
+        'like_count': 'sum',
+        'engagement_rate': 'mean'
+    }).reset_index()
+
+    creator_stats.columns = ['creator', 'video_count', 'total_views', 'total_likes', 'avg_engagement']
+    creator_stats = creator_stats.sort_values('avg_engagement', ascending=False).head(limit)
+
+    creators = []
+    for _, row in creator_stats.iterrows():
+        creators.append({
+            "creator": row['creator'],
+            "video_count": int(row['video_count']),
+            "total_views": int(row['total_views']),
+            "engagement": f"{float(row['avg_engagement']) * 100:.1f}%"
+        })
+
+    return {"creators": creators}
+
+
+@router.get("/top-hashtags")
+def get_top_hashtags(limit: int = 10, category: str = None):
+    """Get top hashtags by frequency."""
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    # Apply category filter if specified
+    working_df = df.copy()
+    if category and category != 'All':
+        working_df = working_df[working_df['category'] == category]
+
+    if len(working_df) == 0:
+        return {"hashtags": []}
+
+    all_hashtags = []
+    for hashtags in working_df['hashtags'].dropna():
+        if isinstance(hashtags, str):
+            try:
+                tags = eval(hashtags)
+                all_hashtags.extend(tags)
+            except:
+                pass
+        elif isinstance(hashtags, list):
+            all_hashtags.extend(hashtags)
+
+    if len(all_hashtags) == 0:
+        return {"hashtags": []}
+
+    hashtag_counts = pd.Series(all_hashtags).value_counts().head(limit)
+
+    hashtags = []
+    for tag, count in hashtag_counts.items():
+        hashtags.append({
+            "hashtag": tag,
+            "count": int(count),
+            "trend": "↗️"
+        })
+
+    return {"hashtags": hashtags}
+
+
+@router.get("/relevant-hashtags")
+def get_relevant_hashtags(q: str, limit: int = 10, category: str = None):
+    """Get hashtags relevant to search query."""
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    query_lower = q.lower()
+    relevant = df[df['caption'].str.lower().str.contains(query_lower, na=False)]
+
+    # Apply category filter if specified
+    if category and category != 'All':
+        relevant = relevant[relevant['category'] == category]
+
+    if len(relevant) == 0:
+        return {"hashtags": []}
+
+    all_hashtags = []
+    for hashtags in relevant['hashtags'].dropna():
+        if isinstance(hashtags, str):
+            try:
+                tags = eval(hashtags)
+                all_hashtags.extend(tags)
+            except:
+                pass
+        elif isinstance(hashtags, list):
+            all_hashtags.extend(hashtags)
+
+    if len(all_hashtags) == 0:
+        return {"hashtags": []}
+
+    hashtag_counts = pd.Series(all_hashtags).value_counts().head(limit)
+
+    hashtags = []
+    for tag, count in hashtag_counts.items():
+        hashtags.append({
+            "hashtag": tag,
+            "count": int(count),
+            "trend": "↗️"
+        })
+
+    return {"hashtags": hashtags}
+
+
+@router.get("/top-videos")
+def get_top_videos(limit: int = 10, category: str = None):
+    """Get top videos overall."""
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    # Apply category filter if specified
+    working_df = df.copy()
+    if category and category != 'All':
+        working_df = working_df[working_df['category'] == category]
+
+    if len(working_df) == 0:
+        return {"videos": []}
+
+    top = working_df.sort_values(['engagement_rate', 'view_count'], ascending=[False, False]).head(limit)
+
+    videos = []
+    for _, row in top.iterrows():
+        videos.append({
+            "title": row.get('caption', '')[:60] or f"Video {row['Id']}",
+            "creator": row.get('owner_username', 'unknown'),
+            "views": int(row.get('view_count', 0)),
+            "category": row.get('category', '')
+        })
+
+    return {"videos": videos}
+
+
+@router.get("/relevant-videos")
+def get_relevant_videos(q: str, limit: int = 10, category: str = None):
+    """Get videos relevant to search query."""
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    query_lower = q.lower()
+    relevant = df[df['caption'].str.lower().str.contains(query_lower, na=False)]
+
+    # Apply category filter if specified
+    if category and category != 'All':
+        relevant = relevant[relevant['category'] == category]
+
+    if len(relevant) == 0:
+        return {"videos": []}
+
+    top = relevant.sort_values(['engagement_rate', 'view_count'], ascending=[False, False]).head(limit)
+
+    videos = []
+    for _, row in top.iterrows():
+        videos.append({
+            "title": row.get('caption', '')[:60] or f"Video {row['Id']}",
+            "creator": row.get('owner_username', 'unknown'),
+            "views": int(row.get('view_count', 0)),
+            "category": row.get('category', '')
+        })
+
+    return {"videos": videos}
