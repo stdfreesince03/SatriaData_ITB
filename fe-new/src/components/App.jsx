@@ -64,6 +64,7 @@ export default function GoogleTrendsApp() {
                     setInputValue={setInputValue}
                     handleSearch={handleSearch}
                     isSearching={isSearching}
+                    onTrendingTopicClick={handleTrendingTopicClick}
                 />
             )}
 

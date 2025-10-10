@@ -1,6 +1,7 @@
 import { Search, TrendingUp, Play, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -208,7 +209,7 @@ export default function SearchInterestSection({ onSearchClick }) {
                         <button
                             onClick={() => onSearchClick && onSearchClick(currentTopic.category || currentTopic.query)}
                             className="flex items-center gap-2 text-blue-600 text-sm hover:bg-blue-50 px-4 py-2 rounded-full transition"
-                        >
+                            >
                             <Search className="w-4 h-4" />
                             Explore all
                         </button>
