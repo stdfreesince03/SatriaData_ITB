@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, Play, TrendingUp, Users, Hash, X, Download, Share2, HelpCircle } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Play, TrendingUp, Users, Hash, X, Video } from 'lucide-react';
 import Image from 'next/image'
 
 const API_BASE = 'http://localhost:8000';
@@ -12,12 +12,33 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
     const [showResults, setShowResults] = useState(false);
 
     // Filter states
-    const [country, setCountry] = useState('Indonesia');
-    const [timeRange, setTimeRange] = useState('Past 12 months');
     const [category, setCategory] = useState('All categories');
-    const [searchType, setSearchType] = useState('Web Search');
+    const [sortBy, setSortBy] = useState('engagement'); // engagement, latest, views
 
-    // Auto-search when initialQuery changes (from Home page)
+    // 4 Box states
+    const [topics, setTopics] = useState([]);
+    const [creators, setCreators] = useState([]);
+    const [hashtags, setHashtags] = useState([]);
+    const [videos, setVideos] = useState([]);
+    const [boxesLoading, setBoxesLoading] = useState(false);
+
+    // Box filter states
+    const [topicCategory, setTopicCategory] = useState('All');
+    const [creatorCategory, setCreatorCategory] = useState('All');
+    const [hashtagCategory, setHashtagCategory] = useState('All');
+    const [videoCategory, setVideoCategory] = useState('All');
+
+    const hasQuery = query && query.trim();
+
+    // Load initial data
+    useEffect(() => {
+        if (!initialQuery || !initialQuery.trim()) {
+            loadViralVideos();
+            loadTopBoxes();
+        }
+    }, []);
+
+    // Handle initialQuery from Home
     useEffect(() => {
         if (initialQuery && initialQuery.trim()) {
             setQuery(initialQuery);
@@ -25,20 +46,36 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         }
     }, [initialQuery]);
 
-
+    // Reload when filters change
     useEffect(() => {
-        // Load viral videos when page first loads (idle state)
-        if (!initialQuery || !initialQuery.trim()) {
+        if (hasQuery) {
+            handleSearch(query);
+        } else {
             loadViralVideos();
         }
-    }, []);
+    }, [category, sortBy]);
+
+    // Reload boxes when box filters change
+    useEffect(() => {
+        if (hasQuery) {
+            loadRelevantBoxes(query);
+        } else {
+            loadTopBoxes();
+        }
+    }, [topicCategory, creatorCategory, hashtagCategory, videoCategory]);
 
     const loadViralVideos = async () => {
         setLoading(true);
         setShowResults(true);
 
         try {
-            const response = await fetch(`${API_BASE}/api/trending/viral-by-category?top_n=12`);
+            const params = new URLSearchParams({
+                top_n: '12',
+                sort_by: sortBy,
+                ...(category !== 'All categories' && { category })
+            });
+
+            const response = await fetch(`${API_BASE}/api/trending/viral-by-category?${params}`);
             const data = await response.json();
             setSections(data.sections || []);
         } catch (error) {
@@ -48,8 +85,110 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         }
     };
 
+    const loadTopBoxes = async () => {
+        setBoxesLoading(true);
+        try {
+            const params = {
+                topics: new URLSearchParams({
+                    limit: 10,
+                    ...(topicCategory !== 'All' && { category: topicCategory })
+                }),
+                creators: new URLSearchParams({
+                    limit: 10,
+                    ...(creatorCategory !== 'All' && { category: creatorCategory })
+                }),
+                hashtags: new URLSearchParams({
+                    limit: 10,
+                    ...(hashtagCategory !== 'All' && { category: hashtagCategory })
+                }),
+                videos: new URLSearchParams({
+                    limit: 10,
+                    ...(videoCategory !== 'All' && { category: videoCategory })
+                })
+            };
+
+            const [topicsRes, creatorsRes, hashtagsRes, videosRes] = await Promise.all([
+                fetch(`${API_BASE}/api/trending/top-topics?${params.topics}`),
+                fetch(`${API_BASE}/api/trending/top-creators?${params.creators}`),
+                fetch(`${API_BASE}/api/trending/top-hashtags?${params.hashtags}`),
+                fetch(`${API_BASE}/api/trending/top-videos?${params.videos}`)
+            ]);
+
+            const [topicsData, creatorsData, hashtagsData, videosData] = await Promise.all([
+                topicsRes.json(),
+                creatorsRes.json(),
+                hashtagsRes.json(),
+                videosRes.json()
+            ]);
+
+            setTopics(topicsData.topics || []);
+            setCreators(creatorsData.creators || []);
+            setHashtags(hashtagsData.hashtags || []);
+            setVideos(videosData.videos || []);
+        } catch (error) {
+            console.error('Failed to load top boxes:', error);
+        } finally {
+            setBoxesLoading(false);
+        }
+    };
+
+    const loadRelevantBoxes = async (searchQuery) => {
+        setBoxesLoading(true);
+        try {
+            const params = {
+                topics: new URLSearchParams({
+                    q: searchQuery,
+                    limit: 10,
+                    ...(topicCategory !== 'All' && { category: topicCategory })
+                }),
+                creators: new URLSearchParams({
+                    q: searchQuery,
+                    limit: 10,
+                    ...(creatorCategory !== 'All' && { category: creatorCategory })
+                }),
+                hashtags: new URLSearchParams({
+                    q: searchQuery,
+                    limit: 10,
+                    ...(hashtagCategory !== 'All' && { category: hashtagCategory })
+                }),
+                videos: new URLSearchParams({
+                    q: searchQuery,
+                    limit: 10,
+                    ...(videoCategory !== 'All' && { category: videoCategory })
+                })
+            };
+
+            const [topicsRes, creatorsRes, hashtagsRes, videosRes] = await Promise.all([
+                fetch(`${API_BASE}/api/trending/relevant-topics?${params.topics}`),
+                fetch(`${API_BASE}/api/trending/relevant-creators?${params.creators}`),
+                fetch(`${API_BASE}/api/trending/relevant-hashtags?${params.hashtags}`),
+                fetch(`${API_BASE}/api/trending/relevant-videos?${params.videos}`)
+            ]);
+
+            const [topicsData, creatorsData, hashtagsData, videosData] = await Promise.all([
+                topicsRes.json(),
+                creatorsRes.json(),
+                hashtagsRes.json(),
+                videosRes.json()
+            ]);
+
+            setTopics(topicsData.topics || []);
+            setCreators(creatorsData.creators || []);
+            setHashtags(hashtagsData.hashtags || []);
+            setVideos(videosData.videos || []);
+        } catch (error) {
+            console.error('Failed to load relevant boxes:', error);
+        } finally {
+            setBoxesLoading(false);
+        }
+    };
+
     const handleSearch = async (searchQuery) => {
-        if (!searchQuery.trim()) return;
+        if (!searchQuery.trim()) {
+            loadViralVideos();
+            loadTopBoxes();
+            return;
+        }
 
         setLoading(true);
         setShowResults(true);
@@ -59,11 +198,18 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         }
 
         try {
-            const response = await fetch(
-                `${API_BASE}/api/explore?q=${encodeURIComponent(searchQuery)}&rows_per_section=16`
-            );
+            const params = new URLSearchParams({
+                q: searchQuery,
+                rows_per_section: '16',
+                sort_by: sortBy,
+                ...(category !== 'All categories' && { category })
+            });
+
+            const response = await fetch(`${API_BASE}/api/explore?${params}`);
             const data = await response.json();
             setSections(data.sections || []);
+
+            loadRelevantBoxes(searchQuery);
         } catch (error) {
             console.error('Search failed:', error);
         } finally {
@@ -76,6 +222,25 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
             handleSearch(query);
         }
     };
+
+    const handleBoxItemClick = (text) => {
+        setQuery(text);
+        handleSearch(text);
+    };
+
+    const categories = [
+        'All categories',
+        'Beauty & Skincare',
+        'Fitness & Gym',
+        'Sports & Athletes',
+        'Health & Wellness',
+        'Gaming & Tech',
+        'Finance & Business',
+        'Automotive & Cars',
+        'Pets & Veterinary'
+    ];
+
+    const boxCategories = ['All', ...categories.slice(1)];
 
     return (
         <section className="px-6 py-8 bg-gray-50 min-h-screen">
@@ -95,53 +260,27 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
                 {/* Filters */}
                 <div className="bg-white rounded-lg p-4 shadow-sm mb-6 flex gap-4 flex-wrap">
                     <select
-                        value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option>Indonesia</option>
-                        <option>United States</option>
-                        <option>Global</option>
-                    </select>
-
-                    <select
-                        value={timeRange}
-                        onChange={(e) => setTimeRange(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option>Past 12 months</option>
-                        <option>Past 24 hours</option>
-                        <option>Past 7 days</option>
-                        <option>Past 30 days</option>
-                        <option>Past 5 years</option>
-                    </select>
-
-                    <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
                         className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                        <option>All categories</option>
-                        <option>Business</option>
-                        <option>Entertainment</option>
-                        <option>Sports</option>
-                        <option>Technology</option>
+                        {categories.map(cat => (
+                            <option key={cat}>{cat}</option>
+                        ))}
                     </select>
 
                     <select
-                        value={searchType}
-                        onChange={(e) => setSearchType(e.target.value)}
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
                         className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                        <option>Web Search</option>
-                        <option>Image Search</option>
-                        <option>News Search</option>
-                        <option>Shopping</option>
-                        <option>YouTube Search</option>
+                        <option value="engagement">Most engaging</option>
+                        <option value="latest">Most recent</option>
+                        <option value="views">Most viewed</option>
                     </select>
                 </div>
 
-                {/* Video Results - Compact Expandable Box */}
+                {/* Video Results */}
                 {showResults && (
                     <div className="bg-white rounded-lg shadow-sm overflow-hidden animate-slideDown mb-6">
                         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
@@ -188,59 +327,104 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
                     </div>
                 )}
 
-                {/* Original Tables (always visible) */}
+                {/* 4 Boxes Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Search Topics */}
-                    <div className="bg-white rounded-lg p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-2">
-                                <h3 className="text-lg font-medium text-gray-900">Search topics</h3>
-                                <HelpCircle className="w-4 h-4 text-gray-400" />
+                    {/* Topics Box */}
+                    <InfoBox
+                        title={hasQuery ? "Relevant topics" : "Top topics"}
+                        icon={<TrendingUp className="w-5 h-5 text-blue-500" />}
+                        items={topics}
+                        loading={boxesLoading}
+                        filterValue={topicCategory}
+                        onFilterChange={setTopicCategory}
+                        filterOptions={boxCategories}
+                        renderItem={(topic) => (
+                            <div
+                                onClick={() => handleBoxItemClick(topic.topic)}
+                                className="flex justify-between items-center p-3 hover:bg-gray-50 rounded cursor-pointer transition"
+                            >
+                                <div>
+                                    <p className="font-medium text-gray-900">{topic.topic}</p>
+                                    <p className="text-xs text-gray-500">{topic.video_count} videos</p>
+                                </div>
+                                <span className="text-xl">{topic.trend}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <select className="px-3 py-1 border border-gray-300 rounded text-sm">
-                                    <option>Rising</option>
-                                    <option>Top</option>
-                                </select>
-                                <button className="p-2 hover:bg-gray-100 rounded">
-                                    <Download className="w-4 h-4 text-gray-600" />
-                                </button>
-                                <button className="p-2 hover:bg-gray-100 rounded">
-                                    <Share2 className="w-4 h-4 text-gray-600" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="text-center py-8 text-gray-500">
-                            <TrendingUp className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                            <p>Enter a search term to see trending topics</p>
-                        </div>
-                    </div>
+                        )}
+                        emptyMessage={hasQuery ? "No relevant topics found" : "Trending topics will appear here"}
+                    />
 
-                    {/* Search Queries */}
-                    <div className="bg-white rounded-lg p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-2">
-                                <h3 className="text-lg font-medium text-gray-900">Search queries</h3>
-                                <HelpCircle className="w-4 h-4 text-gray-400" />
+                    {/* Creators Box */}
+                    <InfoBox
+                        title={hasQuery ? "Relevant creators" : "Top creators"}
+                        icon={<Users className="w-5 h-5 text-purple-500" />}
+                        items={creators}
+                        loading={boxesLoading}
+                        filterValue={creatorCategory}
+                        onFilterChange={setCreatorCategory}
+                        filterOptions={boxCategories}
+                        renderItem={(creator) => (
+                            <div
+                                onClick={() => handleBoxItemClick(creator.creator)}
+                                className="flex justify-between items-center p-3 hover:bg-gray-50 rounded cursor-pointer transition"
+                            >
+                                <div>
+                                    <p className="font-medium text-gray-900">@{creator.creator}</p>
+                                    <p className="text-xs text-gray-500">{creator.video_count} videos</p>
+                                </div>
+                                <span className="text-xs font-medium text-green-600">{creator.engagement}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <select className="px-3 py-1 border border-gray-300 rounded text-sm">
-                                    <option>Rising</option>
-                                    <option>Top</option>
-                                </select>
-                                <button className="p-2 hover:bg-gray-100 rounded">
-                                    <Download className="w-4 h-4 text-gray-600" />
-                                </button>
-                                <button className="p-2 hover:bg-gray-100 rounded">
-                                    <Share2 className="w-4 h-4 text-gray-600" />
-                                </button>
+                        )}
+                        emptyMessage={hasQuery ? "No relevant creators found" : "Top creators will appear here"}
+                    />
+
+                    {/* Hashtags Box */}
+                    <InfoBox
+                        title={hasQuery ? "Relevant hashtags" : "Top hashtags"}
+                        icon={<Hash className="w-5 h-5 text-pink-500" />}
+                        items={hashtags}
+                        loading={boxesLoading}
+                        filterValue={hashtagCategory}
+                        onFilterChange={setHashtagCategory}
+                        filterOptions={boxCategories}
+                        renderItem={(hashtag) => (
+                            <div
+                                onClick={() => handleBoxItemClick(hashtag.hashtag)}
+                                className="flex justify-between items-center p-3 hover:bg-gray-50 rounded cursor-pointer transition"
+                            >
+                                <p className="font-medium text-gray-900">#{hashtag.hashtag}</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-500">{hashtag.count}</span>
+                                    <span className="text-xl">{hashtag.trend}</span>
+                                </div>
                             </div>
-                        </div>
-                        <div className="text-center py-8 text-gray-500">
-                            <Search className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                            <p>Enter a search term to see trending queries</p>
-                        </div>
-                    </div>
+                        )}
+                        emptyMessage={hasQuery ? "No relevant hashtags found" : "Trending hashtags will appear here"}
+                    />
+
+                    {/* Videos Box */}
+                    <InfoBox
+                        title={hasQuery ? "Relevant videos" : "Top videos"}
+                        icon={<Video className="w-5 h-5 text-red-500" />}
+                        items={videos}
+                        loading={boxesLoading}
+                        filterValue={videoCategory}
+                        onFilterChange={setVideoCategory}
+                        filterOptions={boxCategories}
+                        renderItem={(video) => (
+                            <div
+                                onClick={() => handleBoxItemClick(video.title)}
+                                className="p-3 hover:bg-gray-50 rounded cursor-pointer transition"
+                            >
+                                <p className="font-medium text-gray-900 text-sm line-clamp-2 mb-1">{video.title}</p>
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <span>@{video.creator}</span>
+                                    <span>•</span>
+                                    <span>{(video.views / 1000).toFixed(1)}K views</span>
+                                </div>
+                            </div>
+                        )}
+                        emptyMessage={hasQuery ? "No relevant videos found" : "Top videos will appear here"}
+                    />
                 </div>
             </div>
 
@@ -252,6 +436,45 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
     );
 }
 
+function InfoBox({ title, icon, items, loading, renderItem, emptyMessage, filterValue, onFilterChange, filterOptions }) {
+    return (
+        <div className="bg-white rounded-lg p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                    {icon}
+                    <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+                </div>
+                {filterOptions && (
+                    <select
+                        value={filterValue}
+                        onChange={(e) => onFilterChange(e.target.value)}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        {filterOptions.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                    </select>
+                )}
+            </div>
+            {loading ? (
+                <div className="text-center py-8">
+                    <div className="inline-block w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            ) : items.length > 0 ? (
+                <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                    {items.map((item, idx) => (
+                        <div key={idx}>{renderItem(item)}</div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm">{emptyMessage}</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function VideoRow({ section, onVideoClick }) {
     const scrollRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -260,7 +483,6 @@ function VideoRow({ section, onVideoClick }) {
     const scroll = (direction) => {
         const container = scrollRef.current;
         if (!container) return;
-
         const scrollAmount = direction === 'left' ? -600 : 600;
         container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     };
@@ -268,11 +490,8 @@ function VideoRow({ section, onVideoClick }) {
     const checkScroll = () => {
         const container = scrollRef.current;
         if (!container) return;
-
         setCanScrollLeft(container.scrollLeft > 0);
-        setCanScrollRight(
-            container.scrollLeft < container.scrollWidth - container.clientWidth - 10
-        );
+        setCanScrollRight(container.scrollLeft < container.scrollWidth - container.clientWidth - 10);
     };
 
     useEffect(() => {
@@ -285,6 +504,7 @@ function VideoRow({ section, onVideoClick }) {
     }, []);
 
     const getIcon = () => {
+        if (section.key.includes('category_')) return <TrendingUp size={16} className="text-orange-500" />;
         switch (section.key) {
             case 'hashtag': return <Hash size={16} className="text-blue-500" />;
             case 'creator': return <Users size={16} className="text-purple-500" />;
@@ -301,34 +521,21 @@ function VideoRow({ section, onVideoClick }) {
                 <h4 className="text-sm font-semibold text-gray-900">{section.title}</h4>
                 <span className="text-gray-500 text-xs">• {section.reason}</span>
             </div>
-
             <div className="relative group">
                 {canScrollLeft && (
-                    <button
-                        onClick={() => scroll('left')}
-                        className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-r from-white via-white to-transparent flex items-center justify-start opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
+                    <button onClick={() => scroll('left')} className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-r from-white via-white to-transparent flex items-center justify-start opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="bg-white rounded-full p-1 shadow-md ml-1">
                             <ChevronLeft size={20} className="text-gray-700" />
                         </div>
                     </button>
                 )}
-
-                <div
-                    ref={scrollRef}
-                    className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth"
-                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                >
+                <div ref={scrollRef} className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     {section.items.map((video) => (
                         <VideoCard key={video.id} video={video} onClick={() => onVideoClick(video)} />
                     ))}
                 </div>
-
                 {canScrollRight && (
-                    <button
-                        onClick={() => scroll('right')}
-                        className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-l from-white via-white to-transparent flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
+                    <button onClick={() => scroll('right')} className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-gradient-to-l from-white via-white to-transparent flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="bg-white rounded-full p-1 shadow-md mr-1">
                             <ChevronRight size={20} className="text-gray-700" />
                         </div>
@@ -341,39 +548,10 @@ function VideoRow({ section, onVideoClick }) {
 
 function VideoCard({ video, onClick }) {
     const [hovered, setHovered] = useState(false);
-    const [preloaded, setPreloaded] = useState(false);
-
-    // Preload video URL when hovering
-    const handleMouseEnter = () => {
-        setHovered(true);
-
-        // Preload the embed URL
-        if (!preloaded && video.embed_url) {
-            const link = document.createElement('link');
-            link.rel = 'prefetch';
-            link.href = video.embed_url;
-            link.as = 'document';
-            document.head.appendChild(link);
-            setPreloaded(true);
-        }
-    };
-
     return (
-        <div
-            className="flex-shrink-0 w-40 cursor-pointer transition-transform hover:scale-105"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={() => setHovered(false)}
-            onClick={onClick}
-        >
+        <div className="flex-shrink-0 w-40 cursor-pointer transition-transform hover:scale-105" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={onClick}>
             <div className="relative aspect-[9/16] rounded-lg overflow-hidden bg-gray-900 mb-2 shadow-sm">
-                <Image
-                    src={video.thumbnail}
-                    alt={video.title}
-                    fill
-                    sizes="160px"
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                />
+                <Image src={video.thumbnail} alt={video.title} fill sizes="160px" className="w-full h-full object-cover" loading="lazy" />
                 {hovered && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                         <Play size={32} className="text-white drop-shadow-lg" fill="white" />
@@ -383,16 +561,11 @@ function VideoCard({ video, onClick }) {
                     {(video.views / 1000).toFixed(1)}K
                 </div>
             </div>
-
             <h3 className="font-medium text-xs line-clamp-2 mb-1 text-gray-900">{video.title || 'Untitled'}</h3>
             <p className="text-gray-600 text-xs mb-1">@{video.creator}</p>
             <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                    {video.category}
-                </span>
-                <span className="text-xs text-gray-500">
-                    {video.likes} likes
-                </span>
+                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{video.category}</span>
+                <span className="text-xs text-gray-500">{video.likes} likes</span>
             </div>
         </div>
     );
@@ -400,48 +573,27 @@ function VideoCard({ video, onClick }) {
 
 function VideoModal({ video, onClose }) {
     const iframeRef = useRef(null);
-
-    // Preload iframe when modal opens
     useEffect(() => {
         if (video.embed_url && iframeRef.current) {
-            // Force iframe to start loading immediately
             iframeRef.current.src = video.embed_url;
         }
     }, [video.embed_url]);
 
     return (
-        <div
-            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-fadeIn"
-            onClick={onClose}
-        >
-            <div
-                className="max-w-5xl w-full bg-white rounded-xl overflow-hidden shadow-2xl animate-scaleIn"
-                onClick={(e) => e.stopPropagation()}
-            >
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="max-w-5xl w-full bg-white rounded-xl overflow-hidden shadow-2xl animate-scaleIn" onClick={(e) => e.stopPropagation()}>
                 <div className="relative">
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 p-2 rounded-full transition"
-                    >
+                    <button onClick={onClose} className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 p-2 rounded-full transition">
                         <X size={24} className="text-white" />
                     </button>
                     <div className="aspect-video bg-black">
                         {video.embed_url ? (
-                            <iframe
-                                ref={iframeRef}
-                                src={video.embed_url}
-                                className="w-full h-full"
-                                allow="autoplay; fullscreen"
-                                loading="eager"
-                            />
+                            <iframe ref={iframeRef} src={video.embed_url} className="w-full h-full" allow="autoplay; fullscreen" loading="eager" />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                Video not available
-                            </div>
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">Video not available</div>
                         )}
                     </div>
                 </div>
-
                 <div className="p-6 bg-gray-50">
                     <h2 className="text-2xl font-bold mb-2 text-gray-900">{video.title || 'Untitled'}</h2>
                     <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
@@ -453,25 +605,16 @@ function VideoModal({ video, onClose }) {
                         <span>•</span>
                         <span className="text-green-600 font-medium">{(video.engagement_rate * 100).toFixed(2)}% engagement</span>
                     </div>
-
                     {video.hashtags && video.hashtags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-4">
                             {video.hashtags.map((tag, i) => (
-                                <span key={i} className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
-                                    #{tag}
-                                </span>
+                                <span key={i} className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">#{tag}</span>
                             ))}
                         </div>
                     )}
-
                     {video.instagram_url && (
-                        <a  href={video.instagram_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:shadow-lg transition font-semibold text-white">
-                        View on Instagram
-                        </a>
-                        )}
+                        <a href={video.instagram_url} target="_blank" rel="noopener noreferrer" className="inline-block px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:shadow-lg transition font-semibold text-white">View on Instagram</a>
+                    )}
                 </div>
             </div>
         </div>

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query, HTTPException
-from typing import Dict, Any, List
+from typing import Dict, Any, List,Optional
 import pandas as pd
 from collections import Counter
 
@@ -145,32 +145,40 @@ def get_simple_topics(limit: int = Query(5, ge=1, le=10)):
             })
 
     return {"topics": topics}
+
+
 @router.get("/viral-by-category")
-def get_viral_by_category(top_n: int = 10):
-    """
-    Get most viral videos grouped by category.
-    Returns top N videos per category sorted by engagement_rate.
-    """
+def get_viral_by_category(
+        top_n: int = Query(10, ge=1, le=50),
+        category: Optional[str] = None,
+        sort_by: str = Query('engagement', regex='^(engagement|latest|views)$')
+):
     if df is None:
         raise HTTPException(status_code=500, detail="Video data not loaded")
 
-    # Get categories
-    categories = df['category'].dropna().unique()
+    # Apply category filter if specified
+    working_df = df.copy()
+    if category and category != 'All categories':
+        working_df = working_df[working_df['category'] == category]
+        categories = [category]
+    else:
+        categories = working_df['category'].dropna().unique()
 
     sections = []
 
     for cat in sorted(categories):
         # Filter by category
-        cat_df = df[df['category'] == cat].copy()
+        cat_df = working_df[working_df['category'] == cat].copy()  # <-- Changed from df to working_df
 
         if len(cat_df) == 0:
             continue
 
-        # Sort by engagement rate, then views
-        cat_df = cat_df.sort_values(
-            ['engagement_rate', 'view_count'],
-            ascending=[False, False]
-        )
+        if sort_by == 'latest':
+            cat_df = cat_df.sort_values('taken_at', ascending=False)
+        elif sort_by == 'views':
+            cat_df = cat_df.sort_values('view_count', ascending=False)
+        else:  # engagement
+            cat_df = cat_df.sort_values(['engagement_rate', 'view_count'], ascending=[False, False])
 
         # Take top N
         top_videos = cat_df.head(top_n)
@@ -180,7 +188,7 @@ def get_viral_by_category(top_n: int = 10):
         for _, row in top_videos.iterrows():
             video = {
                 "id": int(row['Id']),
-                "title": row.get('caption', '')[:100] or f"Video {row['Id']}",
+                "title": (row.get("caption") or row.get("full_text")[:50] or "") or f"Video {row['Id']}",
                 "creator": row.get('owner_username', 'unknown'),
                 "thumbnail": f"https://drive.google.com/thumbnail?id={row.get('drive_file_id')}&sz=w400" if pd.notna(
                     row.get('drive_file_id')) else row.get('display_url'),
@@ -191,7 +199,7 @@ def get_viral_by_category(top_n: int = 10):
                 "engagement_rate": float(row.get('engagement_rate', 0)),
                 "category": row.get('category', ''),
                 "hashtags": eval(row.get('hashtags', '[]')) if isinstance(row.get('hashtags'), str) else (
-                            row.get('hashtags', []) or []),
+                        row.get('hashtags', []) or []),
                 "instagram_url": row.get('shortcode_url') or row.get('video_url')
             }
             videos.append(video)
