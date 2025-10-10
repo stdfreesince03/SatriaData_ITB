@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from typing import Dict, Any, List
 import pandas as pd
 from collections import Counter
@@ -145,3 +145,107 @@ def get_simple_topics(limit: int = Query(5, ge=1, le=10)):
             })
 
     return {"topics": topics}
+@router.get("/viral-by-category")
+def get_viral_by_category(top_n: int = 10):
+    """
+    Get most viral videos grouped by category.
+    Returns top N videos per category sorted by engagement_rate.
+    """
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    # Get categories
+    categories = df['category'].dropna().unique()
+
+    sections = []
+
+    for cat in sorted(categories):
+        # Filter by category
+        cat_df = df[df['category'] == cat].copy()
+
+        if len(cat_df) == 0:
+            continue
+
+        # Sort by engagement rate, then views
+        cat_df = cat_df.sort_values(
+            ['engagement_rate', 'view_count'],
+            ascending=[False, False]
+        )
+
+        # Take top N
+        top_videos = cat_df.head(top_n)
+
+        # Format videos
+        videos = []
+        for _, row in top_videos.iterrows():
+            video = {
+                "id": int(row['Id']),
+                "title": row.get('caption', '')[:100] or f"Video {row['Id']}",
+                "creator": row.get('owner_username', 'unknown'),
+                "thumbnail": f"https://drive.google.com/thumbnail?id={row.get('drive_file_id')}&sz=w400" if pd.notna(
+                    row.get('drive_file_id')) else row.get('display_url'),
+                "embed_url": f"https://drive.google.com/file/d/{row.get('drive_file_id')}/preview" if pd.notna(
+                    row.get('drive_file_id')) else None,
+                "views": int(row.get('view_count', 0)),
+                "likes": int(row.get('like_count', 0)),
+                "engagement_rate": float(row.get('engagement_rate', 0)),
+                "category": row.get('category', ''),
+                "hashtags": eval(row.get('hashtags', '[]')) if isinstance(row.get('hashtags'), str) else (
+                            row.get('hashtags', []) or []),
+                "instagram_url": row.get('shortcode_url') or row.get('video_url')
+            }
+            videos.append(video)
+
+        if videos:
+            sections.append({
+                "key": f"category_{cat.lower().replace(' ', '_')}",
+                "title": f"🔥 Trending in {cat}",
+                "reason": f"Most viral content",
+                "items": videos
+            })
+
+    return {"sections": sections}
+
+
+@router.get("/overall-viral")
+def get_overall_viral(limit: int = 50):
+    """
+    Get overall most viral videos across all categories.
+    """
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    # Sort by engagement rate
+    viral_df = df.sort_values(
+        ['engagement_rate', 'view_count'],
+        ascending=[False, False]
+    ).head(limit)
+
+    videos = []
+    for _, row in viral_df.iterrows():
+        video = {
+            "id": int(row['Id']),
+            "title": row.get('caption', '')[:100] or f"Video {row['Id']}",
+            "creator": row.get('owner_username', 'unknown'),
+            "thumbnail": f"https://drive.google.com/thumbnail?id={row.get('drive_file_id')}&sz=w400" if pd.notna(
+                row.get('drive_file_id')) else row.get('display_url'),
+            "embed_url": f"https://drive.google.com/file/d/{row.get('drive_file_id')}/preview" if pd.notna(
+                row.get('drive_file_id')) else None,
+            "views": int(row.get('view_count', 0)),
+            "likes": int(row.get('like_count', 0)),
+            "engagement_rate": float(row.get('engagement_rate', 0)),
+            "category": row.get('category', ''),
+            "hashtags": eval(row.get('hashtags', '[]')) if isinstance(row.get('hashtags'), str) else (
+                        row.get('hashtags', []) or []),
+            "instagram_url": row.get('shortcode_url') or row.get('video_url')
+        }
+        videos.append(video)
+
+    return {
+        "sections": [{
+            "key": "overall_viral",
+            "title": "🔥 Most Viral Videos",
+            "reason": "Top engagement across all categories",
+            "items": videos
+        }]
+    }

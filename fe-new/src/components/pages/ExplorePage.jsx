@@ -25,6 +25,29 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         }
     }, [initialQuery]);
 
+
+    useEffect(() => {
+        // Load viral videos when page first loads (idle state)
+        if (!initialQuery || !initialQuery.trim()) {
+            loadViralVideos();
+        }
+    }, []);
+
+    const loadViralVideos = async () => {
+        setLoading(true);
+        setShowResults(true);
+
+        try {
+            const response = await fetch(`${API_BASE}/api/trending/viral-by-category?top_n=12`);
+            const data = await response.json();
+            setSections(data.sections || []);
+        } catch (error) {
+            console.error('Failed to load viral videos:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSearch = async (searchQuery) => {
         if (!searchQuery.trim()) return;
 
