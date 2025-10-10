@@ -336,16 +336,6 @@ function MiniPlayer({ video, onClose }) {
                     )}
 
                     <div className="flex gap-2">
-                        {video.instagram_url && (
-                            <a
-                                href={video.instagram_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:shadow-lg transition font-semibold text-white text-sm"
-                            >
-                                View on Instagram
-                            </a>
-                        )}
                         <button
                             onClick={onClose}
                             className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition font-medium text-gray-700 text-sm"

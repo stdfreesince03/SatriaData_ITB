@@ -8,14 +8,78 @@ import Image from 'next/image';
 const API_BASE = 'http://localhost:8000';
 
 const categoryColors = {
-    beauty: { from: "from-pink-400", to: "to-purple-500", bg: "bg-pink-50", text: "text-pink-600", accent: "rgb(236, 72, 153)" },
-    fitness: { from: "from-orange-400", to: "to-red-500", bg: "bg-orange-50", text: "text-orange-600", accent: "rgb(249, 115, 22)" },
-    sports: { from: "from-blue-400", to: "to-teal-500", bg: "bg-blue-50", text: "text-blue-600", accent: "rgb(59, 130, 246)" },
-    automotive: { from: "from-gray-700", to: "to-black", bg: "bg-gray-50", text: "text-gray-800", accent: "rgb(55, 65, 81)" },
-    health: { from: "from-green-400", to: "to-teal-600", bg: "bg-green-50", text: "text-green-600", accent: "rgb(34, 197, 94)" },
-    gaming: { from: "from-purple-500", to: "to-blue-700", bg: "bg-purple-50", text: "text-purple-600", accent: "rgb(147, 51, 234)" },
-    finance: { from: "from-yellow-400", to: "to-orange-600", bg: "bg-yellow-50", text: "text-yellow-700", accent: "rgb(234, 179, 8)" },
-    pets: { from: "from-amber-300", to: "to-lime-500", bg: "bg-amber-50", text: "text-amber-600", accent: "rgb(245, 158, 11)" }
+    beauty: {
+        from: "from-pink-400",
+        to: "to-purple-500",
+        bg: "bg-pink-50",
+        text: "text-pink-600",
+        accent: "rgb(236, 72, 153)",
+        title: "Beauty Trends",
+        subtitle: "Discover what's trending in Indonesian beauty and skincare"
+    },
+    fitness: {
+        from: "from-orange-400",
+        to: "to-red-500",
+        bg: "bg-orange-50",
+        text: "text-orange-600",
+        accent: "rgb(249, 115, 22)",
+        title: "Fitness Culture",
+        subtitle: "Explore Indonesia's growing fitness community and wellness trends"
+    },
+    sports: {
+        from: "from-blue-400",
+        to: "to-teal-500",
+        bg: "bg-blue-50",
+        text: "text-blue-600",
+        accent: "rgb(59, 130, 246)",
+        title: "Sports Stories",
+        subtitle: "From local heroes to athletic achievements inspiring Indonesian fans"
+    },
+    automotive: {
+        from: "from-gray-700",
+        to: "to-black",
+        bg: "bg-gray-50",
+        text: "text-gray-800",
+        accent: "rgb(55, 65, 81)",
+        title: "Car Culture",
+        subtitle: "Rev up with Indonesia's automotive scene, from mods to road trips"
+    },
+    health: {
+        from: "from-green-400",
+        to: "to-teal-600",
+        bg: "bg-green-50",
+        text: "text-green-600",
+        accent: "rgb(34, 197, 94)",
+        title: "Health & Wellness",
+        subtitle: "Mental health, nutrition, and lifestyle trends shaping Indonesia"
+    },
+    gaming: {
+        from: "from-purple-500",
+        to: "to-blue-700",
+        bg: "bg-purple-50",
+        text: "text-purple-600",
+        accent: "rgb(147, 51, 234)",
+        title: "Gaming & Tech",
+        subtitle: "Level up with gaming trends, tech reviews, and digital culture"
+    },
+    finance: {
+        from: "from-yellow-400",
+        to: "to-orange-600",
+        bg: "bg-yellow-50",
+        text: "text-yellow-700",
+        accent: "rgb(234, 179, 8)",
+        title: "Finance & Business",
+        subtitle: "Investment tips, business insights, and financial literacy"
+    },
+    pets: {
+        from: "from-amber-300",
+        to: "to-lime-500",
+        bg: "bg-amber-50",
+        text: "text-amber-600",
+        accent: "rgb(245, 158, 11)",
+        title: "Pets & Care",
+        subtitle: "Pet care tips, adorable moments, and veterinary advice"
+    }
 };
 
 /** ---------- Video Thumbnail (visuals unchanged) ---------- */
@@ -289,10 +353,10 @@ export default function CategoryStoryPage() {
             <div className={`bg-gradient-to-r ${colors.from} ${colors.to} py-20 mb-16`}>
                 <div className="max-w-6xl mx-auto px-8">
                     <h2 className="text-5xl font-bold text-white mb-4">
-                        Data Stories
+                        {colors.title}
                     </h2>
                     <p className="text-xl text-white/90 max-w-2xl">
-                        Discover trending narratives and insights from Indonesian social media
+                        {colors.subtitle}
                     </p>
                 </div>
             </div>
