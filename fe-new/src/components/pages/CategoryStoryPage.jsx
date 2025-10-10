@@ -18,45 +18,42 @@ const categoryColors = {
     pets: { from: "from-amber-300", to: "to-lime-500", bg: "bg-amber-50", text: "text-amber-600", accent: "rgb(245, 158, 11)" }
 };
 
-function VideoThumbnail({ video }) {
-    const [showIframe, setShowIframe] = useState(false);
-
+/** ---------- Video Thumbnail (visuals unchanged) ---------- */
+function VideoThumbnail({ video, onPlay }) {
     return (
-        <div className="aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 shadow-lg relative group cursor-pointer">
-            {!showIframe && video.thumbnail ? (
-                <div
-                    onClick={() => setShowIframe(true)}
-                    className="w-full h-full relative"
-                >
-                    <img
+        <div
+            className="aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 shadow-lg relative group cursor-pointer"
+            onClick={() => onPlay && onPlay(video)}
+        >
+            {video?.thumbnail ? (
+                <div className="w-full h-full relative">
+                    {/* Keep <img> to preserve your original look */}
+                    <Image
                         src={video.thumbnail}
-                        alt="Video thumbnail"
+                        alt={video.title}
+                        fill
+                        sizes="96px"
                         className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                         <div className="bg-white/90 rounded-full p-4 group-hover:scale-110 transition-transform">
                             <svg className="w-8 h-8 text-gray-800" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M8 5v14l11-7z"/>
+                                <path d="M8 5v14l11-7z" />
                             </svg>
                         </div>
                     </div>
                 </div>
-            ) : showIframe && video.embed_url ? (
-                <iframe
-                    src={video.embed_url}
-                    className="w-full h-full"
-                    allow="autoplay"
-                />
             ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    Video {video.id}
+                    Video {video?.id ?? ''}
                 </div>
             )}
         </div>
     );
 }
 
-function VideoCarousel({ videos, categoryId }) {
+/** ---------- Carousel (visuals unchanged; opens modal on click) ---------- */
+function VideoCarousel({ videos, categoryId, onPlay }) {
     const scrollRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(true);
@@ -79,6 +76,18 @@ function VideoCarousel({ videos, categoryId }) {
         }, 300);
     };
 
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const update = () => {
+            setCanScrollLeft(el.scrollLeft > 0);
+            setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+        };
+        update();
+        el.addEventListener("scroll", update, { passive: true });
+        return () => el.removeEventListener("scroll", update);
+    }, []);
+
     return (
         <div className="relative group">
             {canScrollLeft && (
@@ -98,7 +107,7 @@ function VideoCarousel({ videos, categoryId }) {
                 {videos.slice(0, 6).map((video, i) => (
                     video && (
                         <div key={i} className="flex-shrink-0 w-[280px]">
-                            <VideoThumbnail video={video} />
+                            <VideoThumbnail video={video} onPlay={onPlay} />
                         </div>
                     )
                 ))}
@@ -116,12 +125,99 @@ function VideoCarousel({ videos, categoryId }) {
     );
 }
 
+/** ---------- MiniPlayer (copied from your working component) ---------- */
+function MiniPlayer({ video, onClose }) {
+    return (
+        <div
+            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-fadeIn"
+            onClick={onClose}
+        >
+            <div
+                className="max-w-4xl w-full bg-white rounded-xl overflow-hidden shadow-2xl animate-scaleIn"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="relative">
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 p-2 rounded-full transition"
+                    >
+                        <X size={24} className="text-white" />
+                    </button>
+
+                    <div className="aspect-video bg-black">
+                        {video?.embed_url ? (
+                            <iframe
+                                src={video.embed_url}
+                                className="w-full h-full"
+                                allow="autoplay"
+                            />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-4">
+                                <Play size={64} />
+                                <p>Video preview not available</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="p-6 bg-gray-50">
+                    <h2 className="text-xl font-bold mb-2 text-gray-900">{video?.title}</h2>
+                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                        {video?.creator && <span className="font-medium">@{video.creator}</span>}
+                        {video?.views != null && (<><span>•</span><span>{Number(video.views).toLocaleString()} views</span></>)}
+                        {video?.likes != null && (<><span>•</span><span>{Number(video.likes).toLocaleString()} likes</span></>)}
+                        {video?.engagement_rate != null && (
+                            <>
+                                <span>•</span>
+                                <span className="text-green-600 font-medium">
+                  {(Number(video.engagement_rate) * 100).toFixed(2)}% engagement
+                </span>
+                            </>
+                        )}
+                    </div>
+
+                    {Array.isArray(video?.hashtags) && video.hashtags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {video.hashtags.map((tag, i) => (
+                                <span key={i} className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
+                  #{tag}
+                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="flex gap-2">
+                        {video?.instagram_url && (
+                            <a
+                                href={video.instagram_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:shadow-lg transition font-semibold text-white text-sm"
+                            >
+                                View on Instagram
+                            </a>
+                        )}
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition font-medium text-gray-700 text-sm"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/** ---------- Page (JS) ---------- */
 export default function CategoryStoryPage() {
     const params = useParams();
     const categoryId = params?.categoryId || 'beauty';
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [categoryName, setCategoryName] = useState('');
+    const [selectedVideo, setSelectedVideo] = useState(null);
 
     useEffect(() => {
         async function loadEvents() {
@@ -155,8 +251,8 @@ export default function CategoryStoryPage() {
                             color: colors.accent
                         }}
                     >
-                        {content}
-                    </span>
+            {content}
+          </span>
                 );
             }
             return part;
@@ -229,10 +325,10 @@ export default function CategoryStoryPage() {
                                         {event.top_hashtags.slice(0, 8).map((tag, i) => (
                                             <span
                                                 key={i}
-                                                className={`text-sm ${colors.bg} ${colors.text} px-4 py-2 rounded-full font-medium`}
+                                                className={`${colors.bg} ${colors.text} px-4 py-2 rounded-full font-medium text-sm`}
                                             >
-                                                #{tag}
-                                            </span>
+                        #{tag}
+                      </span>
                                         ))}
                                     </div>
                                 )}
@@ -242,7 +338,11 @@ export default function CategoryStoryPage() {
                             {event.sample_videos && event.sample_videos.length > 0 && (
                                 <div className="mb-20">
                                     <h4 className="text-xl font-semibold text-gray-800 mb-6">Featured Videos</h4>
-                                    <VideoCarousel videos={event.sample_videos} categoryId={categoryId} />
+                                    <VideoCarousel
+                                        videos={event.sample_videos}
+                                        categoryId={categoryId}
+                                        onPlay={(v) => setSelectedVideo(v)}
+                                    />
                                 </div>
                             )}
 
@@ -261,7 +361,10 @@ export default function CategoryStoryPage() {
                                         <div className="col-span-2">
                                             <div className="sticky top-24">
                                                 {segment.video ? (
-                                                    <VideoThumbnail video={segment.video} />
+                                                    <VideoThumbnail
+                                                        video={segment.video}
+                                                        onPlay={(v) => setSelectedVideo(v)}
+                                                    />
                                                 ) : (
                                                     <div className="aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 shadow-lg flex items-center justify-center text-gray-400">
                                                         <div className="text-center">
@@ -299,6 +402,11 @@ export default function CategoryStoryPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Mini Player Modal */}
+            {selectedVideo && (
+                <MiniPlayer video={selectedVideo} onClose={() => setSelectedVideo(null)} />
+            )}
         </div>
     );
 }
