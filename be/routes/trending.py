@@ -287,7 +287,7 @@ def get_top_topics(limit: int = 10, category: str = None):
             "topic": row['topic'],
             "video_count": int(row['video_count']),
             "total_views": int(row['total_views']),
-            "trend": "↗️"
+            "trend": "↗"
         })
 
     return {"topics": topics}
@@ -327,7 +327,7 @@ def get_relevant_topics(q: str, limit: int = 10, category: str = None):
             "topic": row['topic'],
             "video_count": int(row['video_count']),
             "total_views": int(row['total_views']),
-            "trend": "↗️"
+            "trend": "↗"
         })
 
     return {"topics": topics}
@@ -445,7 +445,7 @@ def get_top_hashtags(limit: int = 10, category: str = None):
         hashtags.append({
             "hashtag": tag,
             "count": int(count),
-            "trend": "↗️"
+            "trend": "↗"
         })
 
     return {"hashtags": hashtags}
@@ -488,7 +488,7 @@ def get_relevant_hashtags(q: str, limit: int = 10, category: str = None):
         hashtags.append({
             "hashtag": tag,
             "count": int(count),
-            "trend": "↗️"
+            "trend": "↗"
         })
 
     return {"hashtags": hashtags}
@@ -513,7 +513,7 @@ def get_top_videos(limit: int = 10, category: str = None):
     videos = []
     for _, row in top.iterrows():
         videos.append({
-            "title": row.get('caption', '')[:60] or f"Video {row['Id']}",
+            "title": (row.get("caption") or row.get("full_text")[:50] or "") or f"Video {row['Id']}",
             "creator": row.get('owner_username', 'unknown'),
             "views": int(row.get('view_count', 0)),
             "category": row.get('category', '')
@@ -543,7 +543,7 @@ def get_relevant_videos(q: str, limit: int = 10, category: str = None):
     videos = []
     for _, row in top.iterrows():
         videos.append({
-            "title": row.get('caption', '')[:60] or f"Video {row['Id']}",
+            "title": (row.get("caption") or row.get("full_text")[:50] or "") or f"Video {row['Id']}",
             "creator": row.get('owner_username', 'unknown'),
             "views": int(row.get('view_count', 0)),
             "category": row.get('category', '')
