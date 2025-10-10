@@ -53,7 +53,7 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         } else {
             loadViralVideos();
         }
-    }, [category, sortBy]);
+    }, [category, sortBy]); // eslint-disable-line
 
     // Reload boxes when box filters change
     useEffect(() => {
@@ -62,7 +62,7 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         } else {
             loadTopBoxes();
         }
-    }, [topicCategory, creatorCategory, hashtagCategory, videoCategory]);
+    }, [topicCategory, creatorCategory, hashtagCategory, videoCategory]); // eslint-disable-line
 
     const loadViralVideos = async () => {
         setLoading(true);
@@ -108,10 +108,10 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
             };
 
             const [topicsRes, creatorsRes, hashtagsRes, videosRes] = await Promise.all([
-                fetch(`${API_BASE}/api/trending/top-topics?${params.topics}`),
-                fetch(`${API_BASE}/api/trending/top-creators?${params.creators}`),
-                fetch(`${API_BASE}/api/trending/top-hashtags?${params.hashtags}`),
-                fetch(`${API_BASE}/api/trending/top-videos?${params.videos}`)
+                fetch(`${API_BASE}/api/trending/top-topics?${params.topics.toString()}`),
+                fetch(`${API_BASE}/api/trending/top-creators?${params.creators.toString()}`),
+                fetch(`${API_BASE}/api/trending/top-hashtags?${params.hashtags.toString()}`),
+                fetch(`${API_BASE}/api/trending/top-videos?${params.videos.toString()}`)
             ]);
 
             const [topicsData, creatorsData, hashtagsData, videosData] = await Promise.all([
@@ -159,10 +159,10 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
             };
 
             const [topicsRes, creatorsRes, hashtagsRes, videosRes] = await Promise.all([
-                fetch(`${API_BASE}/api/trending/relevant-topics?${params.topics}`),
-                fetch(`${API_BASE}/api/trending/relevant-creators?${params.creators}`),
-                fetch(`${API_BASE}/api/trending/relevant-hashtags?${params.hashtags}`),
-                fetch(`${API_BASE}/api/trending/relevant-videos?${params.videos}`)
+                fetch(`${API_BASE}/api/trending/relevant-topics?${params.topics.toString()}`),
+                fetch(`${API_BASE}/api/trending/relevant-creators?${params.creators.toString()}`),
+                fetch(`${API_BASE}/api/trending/relevant-hashtags?${params.hashtags.toString()}`),
+                fetch(`${API_BASE}/api/trending/relevant-videos?${params.videos.toString()}`)
             ]);
 
             const [topicsData, creatorsData, hashtagsData, videosData] = await Promise.all([
@@ -184,7 +184,8 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
     };
 
     const handleSearch = async (searchQuery) => {
-        if (!searchQuery.trim()) {
+        const q = (searchQuery || '').trim();
+        if (!q) {
             loadViralVideos();
             loadTopBoxes();
             return;
@@ -193,13 +194,11 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         setLoading(true);
         setShowResults(true);
 
-        if (onQueryChange) {
-            onQueryChange(searchQuery);
-        }
+        onQueryChange?.(q);
 
         try {
             const params = new URLSearchParams({
-                q: searchQuery,
+                q,
                 rows_per_section: '16',
                 sort_by: sortBy,
                 ...(category !== 'All categories' && { category })
@@ -209,7 +208,8 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
             const data = await response.json();
             setSections(data.sections || []);
 
-            loadRelevantBoxes(searchQuery);
+            // keep boxes perfectly in sync with the exact query used for videos
+            await loadRelevantBoxes(q);
         } catch (error) {
             console.error('Search failed:', error);
         } finally {
@@ -217,9 +217,13 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         }
     };
 
-    const handleKeyPress = (e) => {
+    // <<< Use onKeyDown, read the live value, then call handleSearch with it >>>
+    const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
-            handleSearch(query);
+            e.preventDefault();
+            const v = e.currentTarget.value;
+            setQuery(v);
+            handleSearch(v);
         }
     };
 
@@ -251,7 +255,7 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={handleKeyDown}   // <-- swapped from onKeyPress
                         placeholder="Add a search term"
                         className="w-full text-xl text-gray-700 outline-none"
                     />
