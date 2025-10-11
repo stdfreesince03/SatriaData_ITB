@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Dict, Any, List,Optional
+from datetime import datetime, timedelta
 import pandas as pd
 from collections import Counter
 
@@ -10,6 +11,33 @@ df = None
 
 
 import pandas as pd
+
+# def _ensure_utc_naive(s: pd.Series) -> pd.Series:
+#     ts = pd.to_datetime(s, errors="coerce", utc=True)
+#     return ts.dt.tz_convert("UTC").dt.tz_localize(None)
+
+# --- add this helper near your other helpers ---
+
+def _split_recent_all(frame: pd.DataFrame, mode: str) -> pd.DataFrame:
+    if not isinstance(frame, pd.DataFrame) or len(frame) == 0:
+        return frame
+
+    if 'taken_at' in frame.columns:
+        f = frame.copy()
+        f['taken_at_dt'] = _to_utc_aware(f['taken_at'])
+        valid = f['taken_at_dt'].notna()
+        if mode == 'recent' and valid.any():
+            cutoff = f.loc[valid, 'taken_at_dt'].quantile(0.75)  # latest 25%
+            return f[valid & (f['taken_at_dt'] >= cutoff)]
+        return f
+    else:
+        # no timestamp — if Id exists, approximate “recent” by top quartile of Id
+        if mode == 'recent' and 'Id' in frame.columns and len(frame) > 0:
+            q = pd.Series(frame['Id']).dropna()
+            if len(q) > 0:
+                cut = q.quantile(0.75)
+                return frame[frame['Id'] >= cut]
+        return frame
 
 def _safe_series(frame: pd.DataFrame, col: str) -> pd.Series:
     """Return a string Series for `col` if it exists, else an empty Series."""
@@ -534,3 +562,298 @@ def get_relevant_videos(q: str, limit: int = 10, category: str = None):
             "category": row.get('category', '')
         })
     return {"videos": videos}
+
+def _to_utc_aware(s: pd.Series) -> pd.Series:
+    return pd.to_datetime(s, errors="coerce", utc=True)
+# --- replace your /trending-now entirely with this ---
+
+@router.get("/trending-now")
+def get_trending_now(
+    time_range: str = Query('recent', regex='^(recent|all)$'),
+    category: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=100)
+):
+    """
+    'recent' uses the latest quartile of the dataset (no fixed day windows).
+    'all' uses the full dataset.
+    Growth is computed as delta in share (recent share vs overall share).
+    """
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    working_df = df.copy()
+    now_utc = pd.Timestamp.now(tz="UTC")
+
+    # ensure tz-aware for time strings & timeseries
+    if 'taken_at' in working_df.columns:
+        working_df['taken_at_dt'] = _to_utc_aware(working_df['taken_at'])
+
+    # category slice (for both recent and all)
+    if category and category != 'All categories':
+        working_df = working_df[working_df['category'] == category]
+
+    # split
+    recent_df = _split_recent_all(working_df, 'recent')
+    selected_df = recent_df if time_range == 'recent' else working_df
+
+    if len(selected_df) == 0:
+        return {"trends": []}
+
+    trends = []
+
+    # ---------- Categories ----------
+    # counts in selected vs overall (shares)
+    sel_cat = selected_df.groupby('category', dropna=True)['Id'].count()
+    all_cat = working_df.groupby('category', dropna=True)['Id'].count()
+    sel_total = max(int(sel_cat.sum()), 1)
+    all_total = max(int(all_cat.sum()), 1)
+
+    cat_stats = (
+        selected_df.groupby('category', dropna=True)
+        .agg(view_count=('view_count', 'sum'),
+             engagement_rate=('engagement_rate', 'mean'),
+             taken_at_dt=('taken_at_dt', 'max'),
+             Id=('Id', 'count'))
+        .reset_index()
+    )
+
+    for _, row in cat_stats.iterrows():
+        cat = row['category']
+        if pd.isna(cat) or str(cat).strip().lower() == 'none':
+            continue
+
+        sel_share = float(sel_cat.get(cat, 0)) / sel_total
+        all_share = float(all_cat.get(cat, 0)) / all_total
+        growth_pct = 100.0 * ((sel_share - all_share) / all_share) if all_share > 0 else 100.0
+
+        ts = row.get('taken_at_dt')
+        hours_ago_str = "N/A" if pd.isna(ts) else f"{int((now_utc - ts).total_seconds() / 3600)}h ago"
+
+        trends.append({
+            'name': cat,
+            'type': 'category',
+            'volume': f"{int(row['Id'])}+",
+            'growth': f"+{int(growth_pct)}%",
+            'time': hours_ago_str,
+            'total_views': int(row['view_count']),
+            'avg_engagement': float(row['engagement_rate']),
+            'related_tag': '',
+            'timeseries': _generate_trend_line(selected_df[selected_df['category'] == cat])
+        })
+
+    # ---------- Hashtags ----------
+    def _explode_hashtags(frame: pd.DataFrame) -> pd.Series:
+        out = []
+        for val in frame.get('hashtags', pd.Series([], dtype="object")).dropna():
+            try:
+                if isinstance(val, str) and val.strip().startswith('['):
+                    import ast
+                    out.extend(ast.literal_eval(val))
+                elif isinstance(val, str):
+                    out.extend([h.strip() for h in val.split(',') if h.strip()])
+                elif isinstance(val, list):
+                    out.extend(val)
+            except Exception:
+                pass
+        return pd.Series([str(x).strip().strip("#'\"") for x in out if str(x).strip()])
+
+    sel_tags = _explode_hashtags(selected_df)
+    all_tags = _explode_hashtags(working_df)
+
+    tag_counts_sel = sel_tags.value_counts()
+    tag_counts_all = all_tags.value_counts()
+
+    for tag, cnt in tag_counts_sel.head(200).items():
+        if cnt < 2:
+            continue
+        sel_share = float(cnt) / max(tag_counts_sel.sum(), 1)
+        all_share = float(tag_counts_all.get(tag, 0)) / max(tag_counts_all.sum(), 1)
+        growth_pct = 100.0 * ((sel_share - all_share) / all_share) if all_share > 0 else 100.0
+
+        tag_videos = selected_df[selected_df['hashtags'].astype(str).str.contains(tag, case=False, na=False)]
+        related_cat = tag_videos['category'].mode()[0] if len(tag_videos) > 0 else ''
+        max_ts = tag_videos['taken_at_dt'].max() if 'taken_at_dt' in tag_videos.columns else pd.NaT
+        hours_ago_str = "N/A" if pd.isna(max_ts) else f"{int((now_utc - max_ts).total_seconds() / 3600)}h ago"
+
+        trends.append({
+            'name': f"#{tag}",
+            'type': 'hashtag',
+            'volume': f"{int(cnt)}+",
+            'growth': f"+{int(growth_pct)}%",
+            'time': hours_ago_str,
+            'total_views': int(tag_videos['view_count'].sum()) if len(tag_videos) > 0 else 0,
+            'avg_engagement': float(tag_videos['engagement_rate'].mean() if len(tag_videos) > 0 else 0.0),
+            'related_tag': related_cat,
+            'timeseries': _generate_trend_line(tag_videos)
+        })
+
+    # ---------- Creators ----------
+    sel_creator = selected_df.groupby('owner_username', dropna=True)['Id'].count()
+    all_creator = working_df.groupby('owner_username', dropna=True)['Id'].count()
+    sel_total_c = max(int(sel_creator.sum()), 1)
+    all_total_c = max(int(all_creator.sum()), 1)
+
+    creator_stats = (
+        selected_df.groupby('owner_username', dropna=True)
+        .agg(Id=('Id', 'count'),
+             view_count=('view_count', 'sum'),
+             engagement_rate=('engagement_rate', 'mean'),
+             taken_at_dt=('taken_at_dt', 'max'))
+        .reset_index()
+    )
+    creator_stats = creator_stats[creator_stats['Id'] >= 2]
+
+    for _, row in creator_stats.head(100).iterrows():
+        name = row['owner_username']
+        sel_share = float(sel_creator.get(name, 0)) / sel_total_c
+        all_share = float(all_creator.get(name, 0)) / all_total_c
+        growth_pct = 100.0 * ((sel_share - all_share) / all_share) if all_share > 0 else 100.0
+
+        ts = row.get('taken_at_dt')
+        hours_ago_str = "N/A" if pd.isna(ts) else f"{int((now_utc - ts).total_seconds() / 3600)}h ago"
+
+        creator_videos = selected_df[selected_df['owner_username'] == name]
+        main_category = creator_videos['category'].mode()[0] if len(creator_videos) > 0 else ''
+
+        trends.append({
+            'name': f"@{name}",
+            'type': 'creator',
+            'volume': f"{int(row['Id'])}+",
+            'growth': f"+{int(growth_pct)}%",
+            'time': hours_ago_str,
+            'total_views': int(row['view_count']),
+            'avg_engagement': float(row['engagement_rate']),
+            'related_tag': main_category,
+            'timeseries': _generate_trend_line(creator_videos)
+        })
+
+    trends.sort(key=lambda x: int(str(x['growth']).replace('+', '').replace('%', '') or 0), reverse=True)
+    return {"trends": trends[:limit]}
+
+def _generate_trend_line(df_subset: pd.DataFrame) -> List[int]:
+    """Generate a simple 6-point trend line for visualization."""
+    if len(df_subset) == 0:
+        return [0, 0, 0, 0, 0, 0]
+
+    if 'taken_at_dt' in df_subset.columns:
+        sorted_df = df_subset[df_subset['taken_at_dt'].notna()].sort_values('taken_at_dt')
+        if len(sorted_df) == 0:
+            return [0, 0, 0, 0, 0, 0]
+        bucket_size = max(len(sorted_df) // 6, 1)
+        out: List[int] = []
+        for i in range(6):
+            start = i * bucket_size
+            end = start + bucket_size if i < 5 else len(sorted_df)
+            out.append(len(sorted_df.iloc[start:end]))
+        return out
+
+    # Fallback
+    import random
+    base = len(df_subset) // 6
+    return [max(base + random.randint(-max(base//2, 1), max(base//2, 1)), 0) for _ in range(6)]
+
+
+# --- replace your /trending-detail entirely with this ---
+
+@router.get("/trending-detail/{trend_name}")
+def get_trending_detail(
+    trend_name: str,
+    time_range: str = Query('recent', regex='^(recent|all)$'),
+    limit: int = Query(20, ge=1, le=50)
+):
+    """
+    Detail view honors the same scope:
+    - recent: latest quartile
+    - all: entire dataset
+    """
+    if df is None:
+        raise HTTPException(status_code=500, detail="Video data not loaded")
+
+    working_df = df.copy()
+    if 'taken_at' in working_df.columns:
+        working_df['taken_at_dt'] = _to_utc_aware(working_df['taken_at'])
+
+    scoped = _split_recent_all(working_df, 'recent' if time_range == 'recent' else 'all')
+
+    # Normalize input
+    name_clean = trend_name.strip().lstrip('#@')
+
+    if trend_name.startswith('#'):
+        filtered = scoped[scoped['hashtags'].astype(str).str.contains(name_clean, case=False, na=False)]
+    elif trend_name.startswith('@'):
+        filtered = scoped[scoped['owner_username'].str.lower() == name_clean.lower()]
+    else:
+        filtered = scoped[scoped['category'] == trend_name]
+
+    if len(filtered) == 0:
+        raise HTTPException(status_code=404, detail="Trend not found")
+
+    top_videos = filtered.sort_values(['engagement_rate', 'view_count'], ascending=[False, False]).head(limit)
+
+    videos = []
+    for _, row in top_videos.iterrows():
+        videos.append({
+            "id": int(row['Id']),
+            "title": (row.get("caption") or (row.get("full_text") or "")[:50]) or f"Video {row['Id']}",
+            "creator": row.get('owner_username', 'unknown'),
+            "thumbnail": (
+                f"https://drive.google.com/thumbnail?id={row.get('drive_file_id')}&sz=w400"
+                if pd.notna(row.get('drive_file_id')) else row.get('display_url')
+            ),
+            "embed_url": (
+                f"https://drive.google.com/file/d/{row.get('drive_file_id')}/preview"
+                if pd.notna(row.get('drive_file_id')) else None
+            ),
+            "views": int(row.get('view_count', 0)),
+            "likes": int(row.get('like_count', 0)),
+            "engagement_rate": float(row.get('engagement_rate', 0)),
+            "category": row.get('category', ''),
+        })
+
+    related_categories = filtered['category'].value_counts().head(5).to_dict()
+
+    all_hashtags = []
+    for hashtags in filtered.get('hashtags', pd.Series([], dtype="object")).dropna():
+        try:
+            if isinstance(hashtags, str) and hashtags.strip().startswith('['):
+                import ast
+                all_hashtags.extend(ast.literal_eval(hashtags))
+        except Exception:
+            pass
+    top_hashtags = pd.Series(all_hashtags).value_counts().head(10).to_dict() if all_hashtags else {}
+
+    return {
+        "trend_name": trend_name,
+        "total_videos": len(filtered),
+        "total_views": int(filtered['view_count'].sum()),
+        "avg_engagement": float(filtered['engagement_rate'].mean()),
+        "top_videos": videos,
+        "related_categories": related_categories,
+        "top_hashtags": top_hashtags,
+        "timeseries": _generate_detailed_timeseries(filtered)
+    }
+
+def _generate_detailed_timeseries(df_subset: pd.DataFrame) -> Dict[str, List]:
+    """Generate detailed timeseries (hourly) for charts."""
+    if 'taken_at_dt' not in df_subset.columns or len(df_subset) == 0:
+        return {"timestamps": [], "views": [], "engagement": [], "video_count": []}
+
+    # Keep only valid datetimes and ensure UTC tz-aware index
+    df_subset = df_subset[df_subset['taken_at_dt'].notna()].sort_values('taken_at_dt').set_index('taken_at_dt')
+    if df_subset.index.tz is None:
+        df_subset = df_subset.tz_localize('UTC')
+    else:
+        df_subset = df_subset.tz_convert('UTC')
+
+    hourly = df_subset.resample('H').agg({
+        'view_count': 'sum',
+        'engagement_rate': 'mean',
+        'Id': 'count'
+    }).fillna(0)
+
+    return {
+        "timestamps": [str(ts) for ts in hourly.index],
+        "views": hourly['view_count'].tolist(),
+        "engagement": hourly['engagement_rate'].tolist(),
+        "video_count": hourly['Id'].tolist()
+    }
