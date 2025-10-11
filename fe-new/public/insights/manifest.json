@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "locale": "id",
+  "items": [
+    {
+      "id": "proporsi-kategori",
+      "slug": "proporsi-kategori",
+      "image": "/insights/category_proportion.png",
+      "title": "Proporsi Kategori",
+      "teaser": "Bagaimana porsi tiap kategori dalam dataset.",
+      "description": "Diagram ini menunjukkan distribusi video per kategori. Gunakan untuk melihat kategori mana yang paling dominan dan mana yang masih niche.",
+      "tags": ["kategori", "distribusi"]
+    },
+    {
+      "id": "top-kategori-berdasar-engagement",
+      "slug": "top-kategori-berdasar-engagement",
+      "image": "/insights/top_categories_by_engagement.png",
+      "title": "Top Kategori berdasarkan Engagement",
+      "teaser": "Kategori mana yang menghasilkan engagement tertinggi.",
+      "description": "Bar chart membandingkan total engagement di tiap kategori. Kategori dengan bar lebih panjang cenderung punya potensi performa yang lebih baik untuk ide konten.",
+      "tags": ["kategori", "engagement"]
+    },
+    {
+      "id": "views-vs-engagement-rate",
+      "slug": "views-vs-engagement-rate",
+      "image": "/insights/views_vs_engagement_rate.png",
+      "title": "Views vs Engagement Rate",
+      "teaser": "Apakah video dengan views besar selalu punya ER tinggi?",
+      "description": "Scatter plot yang memetakan View Count terhadap Engagement Rate. Titik-titik outlier membantu mengidentifikasi konten yang 'efisien' (engagement tinggi walau views tidak ekstrem).",
+      "tags": ["views", "engagement"]
+    },
+    {
+      "id": "kinerja-dari-waktu-ke-waktu",
+      "slug": "kinerja-dari-waktu-ke-waktu",
+      "image": "/insights/performance_over_time.png",
+      "title": "Kinerja dari Waktu ke Waktu",
+      "teaser": "Tren metrik utama sepanjang waktu.",
+      "description": "Garis waktu menunjukkan perubahan Like Rate, Comment Rate, dan total Engagement Rate per bulan. Gunakan untuk membaca musimality atau periode lonjakan performa.",
+      "tags": ["tren", "time-series"]
+    },
+    {
+      "id": "engagement-berdasar-emosi",
+      "slug": "engagement-berdasar-emosi",
+      "image": "/insights/engagement_rate_by_emotion.png",
+      "title": "Engagement Rate berdasarkan Emosi",
+      "teaser": "Emosi mana yang paling memicu interaksi.",
+      "description": "Radar chart membandingkan ER untuk berbagai label emosi. Bermanfaat untuk merancang angle storytelling dan tone video.",
+      "tags": ["emosi", "engagement"]
+    },
+    {
+      "id": "panjang-caption-vs-performa",
+      "slug": "panjang-caption-vs-performa",
+      "image": "/insights/content_length_vs_performance.png",
+      "title": "Panjang Caption vs Performa",
+      "teaser": "Apakah caption panjang membantu?",
+      "description": "Hubungan antara panjang caption (karakter) dan rata-rata engagement. Temukan sweet spot agar informasi cukup tanpa menurunkan minat.",
+      "tags": ["caption", "copywriting"]
+    },
+    {
+      "id": "likes-vs-views",
+      "slug": "likes-vs-views",
+      "image": "/insights/like_vs_views.png",
+      "title": "Likes vs Views (log-log)",
+      "teaser": "Elastisitas like terhadap view dalam skala log.",
+      "description": "Plot log-log memudahkan membaca pola pertumbuhan like saat views meningkat. Outlier positif dapat jadi contoh konten sangat engaging.",
+      "tags": ["likes", "views"]
+    },
+    {
+      "id": "perbandingan-kreator",
+      "slug": "perbandingan-kreator",
+      "image": "/insights/creator_comparison.png",
+      "title": "Perbandingan Kreator",
+      "teaser": "Siapa saja kreator dengan volume & ER mencolok.",
+      "description": "Bubble chart memperlihatkan kreator dengan ukuran berdasarkan view dan warna/inti berdasarkan engagement. Memudahkan spotting akun referensi.",
+      "tags": ["kreator", "benchmark"]
+    },
+    {
+      "id": "ringkasan-metrik",
+      "slug": "ringkasan-metrik",
+      "image": "/insights/metrics.png",
+      "title": "Ringkasan Metrik",
+      "teaser": "Sekilas angka utama dari dataset.",
+      "description": "Kartu ringkasan seperti total video, total views, dan ER rata-rata untuk gambaran cepat sebelum menyelam lebih dalam.",
+      "tags": ["ringkasan"]
+    },
+
+    {
+      "id": "waktu-posting-terbaik",
+      "slug": "waktu-posting-terbaik",
+      "image": "/insights/best_posting_time.png",
+      "title": "Waktu Posting Terbaik",
+      "teaser": "Heatmap jam & hari dengan volume posting tertinggi.",
+      "description": "Heatmap memperlihatkan sebaran jam dan hari saat konten diposting. Gunakan sebagai referensi jam tayang awal lalu uji A/B untuk audiens Anda.",
+      "tags": ["waktu-posting", "jadwal"]
+    },
+    {
+      "id": "top-20-video-berdasar-views",
+      "slug": "top-20-video-berdasar-views",
+      "image": "/insights/top_20_videos_by_views.png",
+      "title": "Top 20 Video berdasarkan Views",
+      "teaser": "Video dengan penayangan tertinggi di dataset.",
+      "description": "Daftar 20 video teratas dari sisi views, dilengkapi pewarnaan likes sebagai konteks. Cocok untuk meneliti pola judul, tema, atau hook awal.",
+      "tags": ["video", "views", "ranking"]
+    },
+    {
+      "id": "top-20-kreator-berdasar-engagement",
+      "slug": "top-20-kreator-berdasar-engagement",
+      "image": "/insights/top_20_creator_by_engagement.png",
+      "title": "Top 20 Kreator berdasarkan Engagement Rate",
+      "teaser": "Kreator dengan ER tertinggi (min 5 video).",
+      "description": "Peringkat kreator berdasarkan Engagement Rate, hanya menghitung akun dengan minimal jumlah video agar lebih adil. Jadikan inspirasi gaya eksekusi.",
+      "tags": ["kreator", "engagement", "ranking"]
+    },
+    {
+      "id": "top-20-kreator-teraktif",
+      "slug": "top-20-kreator-teraktif",
+      "image": "/insights/top_20_most_active_creators.png",
+      "title": "Top 20 Kreator Teraktif",
+      "teaser": "Akun dengan jumlah video terbanyak.",
+      "description": "Bar chart kreator paling aktif berdasarkan jumlah unggahan. Aktivitas tinggi tidak selalu identik dengan ER tinggi—kombinasikan dengan chart ER untuk strategi konten.",
+      "tags": ["kreator", "aktivitas", "volume"]
+    }
+  ]
+}

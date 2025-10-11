@@ -4,6 +4,7 @@ import MadeWithTrendsSection from '../sections/MadeWithTrendsSection';
 import GetStartedSection from '../sections/GetStartedSection';
 import NewsletterSection from '../sections/NewsletterSection';
 import CategoryStoriesSection from "@/components/sections/CategoryStoriesSection";
+import InsightsCarouselSection from '../sections/InsightsCarouselSection';
 
 export default function HomePage({
                                      searchQuery,
@@ -25,6 +26,7 @@ export default function HomePage({
             <SearchInterestSection
                 onSearchClick={onTrendingTopicClick}
             />
+            <InsightsCarouselSection />
             <CategoryStoriesSection/>
             {/*<MadeWithTrendsSection />*/}
             {/*<GetStartedSection />*/}
