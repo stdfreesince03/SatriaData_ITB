@@ -1,9 +1,8 @@
-# Configuration
+
 API_HOST = "0.0.0.0"
 API_PORT = 8000
 CORS_ORIGINS = ["http://localhost:3000"]
 
-# Paths
 ARTIFACTS_DIR = "artifacts"
 VIDEOS_FILE = "artifacts/videos.parquet"
 TOPICS_FILE = "artifacts/topics.json"

@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import {API_BASE} from "@/lib/api";
 
-const API_BASE = 'http://localhost:8000';
 
 const categoryConfig = [
     {

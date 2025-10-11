@@ -4,8 +4,8 @@ import { X, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
+import {API_BASE} from "@/lib/api";
 
-const API_BASE = 'http://localhost:8000';
 
 const categoryColors = {
     beauty: {

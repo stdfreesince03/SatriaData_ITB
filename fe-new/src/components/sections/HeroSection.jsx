@@ -1,6 +1,7 @@
 "use client";
 import { TrendingUp, X, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import {API_BASE} from "@/lib/api";
 
 export default function HeroSection({ searchQuery, inputValue, setInputValue, handleSearch, isSearching }) {
     const [suggestions, setSuggestions] = useState([]);
@@ -19,7 +20,7 @@ export default function HeroSection({ searchQuery, inputValue, setInputValue, ha
     const fetchRandomTrending = async () => {
         try {
             setIsRotating(true);
-            const response = await fetch('http://localhost:8000/api/search/random-suggestions?limit=5');
+            const response = await fetch(`${API_BASE}/api/search/random-suggestions?limit=5`);
             const data = await response.json();
             setTrendingChips(data.suggestions || []);
         } catch (error) {
@@ -32,7 +33,7 @@ export default function HeroSection({ searchQuery, inputValue, setInputValue, ha
     // Fetch suggestion for animated placeholder
     const fetchPlaceholderSuggestion = async () => {
         try {
-            const response = await fetch('http://localhost:8000/api/search/random-suggestions?limit=1');
+            const response = await fetch(`${API_BASE}/api/search/random-suggestions?limit=1`);
             const data = await response.json();
             if (data.suggestions && data.suggestions.length > 0) {
                 return data.suggestions[0].text.replace('#', '');
@@ -112,7 +113,7 @@ export default function HeroSection({ searchQuery, inputValue, setInputValue, ha
 
             try {
                 const response = await fetch(
-                    `http://localhost:8000/api/search/suggestions?q=${encodeURIComponent(inputValue)}&limit=8`
+                    `${API_BASE}/api/search/suggestions?q=${encodeURIComponent(inputValue)}&limit=8`
                 );
                 const data = await response.json();
                 setSuggestions(data.suggestions || []);

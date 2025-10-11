@@ -2,8 +2,7 @@ import { Search, TrendingUp, Play, X, ChevronLeft, ChevronRight } from 'lucide-r
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-
-const API_BASE = 'http://localhost:8000';
+import {API_BASE} from "@/lib/api";
 
 export default function SearchInterestSection({ onSearchClick }) {
     const [trendingTopics, setTrendingTopics] = useState([]);

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, Play, TrendingUp, Users, Hash, X, Video } from 'lucide-react';
 import Image from 'next/image'
 
-const API_BASE = 'http://localhost:8000';
+import {API_BASE} from "@/lib/api";
 
 export default function ExplorePage({ initialQuery = '', onQueryChange }) {
     const [query, setQuery] = useState(initialQuery);

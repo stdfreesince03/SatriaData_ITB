@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Search, TrendingUp, X, Play } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import {API_BASE} from "@/lib/api";
 
-const API_BASE = 'http://localhost:8000';
 
 export default function TrendingNowPage({onTrendingTopicClick}) {
     const router = useRouter();
