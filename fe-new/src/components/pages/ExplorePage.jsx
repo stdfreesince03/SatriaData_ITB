@@ -31,6 +31,15 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
 
     const hasQuery = query && query.trim();
 
+     const resettingRef = useRef(false);
+     const resetBoxFilters = React.useCallback(() => {
+         resettingRef.current = true;       // prevent double fetch from the next effect
+           setTopicCategory('All');
+           setCreatorCategory('All');
+           setHashtagCategory('All');
+           setVideoCategory('All');
+           setAvailableCategories(['All']);}, [])
+
     // Load initial data
     useEffect(() => {
         if (!initialQuery || !initialQuery.trim()) {
@@ -56,15 +65,22 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         }
     }, [category, sortBy]);
 
-    // Reload boxes when box filters change
-    // Reload boxes when box filters change
+
     useEffect(() => {
-        if (hasQuery) {
-            loadRelevantBoxes(query);
-        } else {
-            loadTopBoxes();
+        if (resettingRef.current) {
+            resettingRef.current = false;
+            return;
         }
+        if (hasQuery) loadRelevantBoxes(query);
+        else loadTopBoxes();
     }, [topicCategory, creatorCategory, hashtagCategory, videoCategory]);
+
+     useEffect(() => {
+           if (!query.trim()) {
+                 resetBoxFilters();
+                 loadTopBoxes();
+           }
+           }, [query, resetBoxFilters]);
 
 
     const loadViralVideos = async () => {
