@@ -38,7 +38,7 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
            setCreatorCategory('All');
            setHashtagCategory('All');
            setVideoCategory('All');
-           setAvailableCategories(['All']);}, [])
+           setAvailableCategories(['All']);}, []);
 
     // Load initial data
     useEffect(() => {

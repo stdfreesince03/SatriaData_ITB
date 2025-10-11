@@ -85,6 +85,7 @@ export default function GoogleTrendsApp() {
                     setTrendingCategory={setTrendingCategory}
                     rowsPerPage={rowsPerPage}
                     setRowsPerPage={setRowsPerPage}
+                    onTrendingTopicClick={handleTrendingTopicClick}
                 />
             )}
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 const API_BASE = 'http://localhost:8000';
 
-export default function TrendingNowPage() {
+export default function TrendingNowPage({onTrendingTopicClick}) {
     const router = useRouter();
     const [trends, setTrends] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -13,6 +13,7 @@ export default function TrendingNowPage() {
     const [detailData, setDetailData] = useState(null);
     const [selectedVideo, setSelectedVideo] = useState(null);
 
+    // Filters
     const [timeRange, setTimeRange] = useState('recent');
     const [category, setCategory] = useState('All categories');
     const [searchQuery, setSearchQuery] = useState('');
@@ -80,6 +81,11 @@ export default function TrendingNowPage() {
         setDetailData(null);
     };
 
+    const handleExploreAll = () => {
+        const q = (selectedTrend?.name || '').replace(/^[#@]/, '').trim();
+       onTrendingTopicClick(q)
+    };
+
     // Filter trends by search
     const filteredTrends = trends.filter(trend => {
         if (searchQuery && !trend.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -108,15 +114,6 @@ export default function TrendingNowPage() {
         );
     };
 
-    const getTrendIcon = (type) => {
-        switch(type) {
-            case 'category': return '🎯';
-            case 'hashtag': return '#️⃣';
-            case 'creator': return '👤';
-            default: return '📊';
-        }
-    };
-
     return (
         <section className="px-6 py-8 bg-gray-50 min-h-screen">
             <div className="max-w-7xl mx-auto">
@@ -134,8 +131,8 @@ export default function TrendingNowPage() {
                             onChange={(e) => setTimeRange(e.target.value)}
                             className="px-4 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option value="recent">📅 Recent (30 days)</option>
-                            <option value="all">📅 All time</option>
+                            <option value="recent">Recent</option>
+                            <option value="all">All time</option>
                         </select>
 
                         <select
@@ -145,7 +142,7 @@ export default function TrendingNowPage() {
                         >
                             {categories.map(cat => (
                                 <option key={cat} value={cat}>
-                                    {cat === 'All categories' ? '🎯 ' + cat : cat}
+                                    {cat}
                                 </option>
                             ))}
                         </select>
@@ -200,7 +197,7 @@ export default function TrendingNowPage() {
                                     >
                                         <td className="p-4">
                                             <div className="flex items-start gap-3">
-                                                <span className="text-xl">{getTrendIcon(trend.type)}</span>
+                                                {/*<span className="text-xl">{getTrendIcon(trend.type)}</span>*/}
                                                 <div className="flex-1">
                                                     <div className="font-medium text-gray-900 mb-1">{trend.name}</div>
                                                     <div className="flex items-center gap-2 text-sm">
@@ -208,10 +205,9 @@ export default function TrendingNowPage() {
                                                                 <TrendingUp className="w-3 h-3" />
                                                                 Active
                                                             </span>
-                                                        <span className="text-gray-500">• {trend.time}</span>
+                                                        <span className="text-gray-500">{trend.time}</span>
                                                         {trend.related_tag && (
                                                             <>
-                                                                <span className="text-gray-500">•</span>
                                                                 <span className="text-blue-600 underline text-xs">{trend.related_tag}</span>
                                                             </>
                                                         )}
@@ -250,7 +246,7 @@ export default function TrendingNowPage() {
                         <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between z-10">
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <span className="text-3xl">{getTrendIcon(selectedTrend.type)}</span>
+                                    {/*<span className="text-3xl">{getTrendIcon(selectedTrend.type)}</span>*/}
                                     <h2 className="text-2xl font-normal text-gray-900">{selectedTrend.name}</h2>
                                 </div>
                                 <p className="text-sm text-gray-600">Trend breakdown</p>
@@ -357,7 +353,7 @@ export default function TrendingNowPage() {
                                                             {video.title}
                                                         </div>
                                                         <div className="text-xs text-gray-600">
-                                                            @{video.creator} • {(video.views / 1000).toFixed(1)}K views
+                                                            @{video.creator} {(video.views / 1000).toFixed(1)}K views
                                                         </div>
                                                     </div>
                                                 </div>
@@ -368,10 +364,7 @@ export default function TrendingNowPage() {
                                     {/* Explore Button */}
                                     <div className="mt-8 pt-8 border-t border-gray-200">
                                         <button
-                                            onClick={() => {
-                                                // TODO: Navigate to explore page with this query
-                                                console.log('Explore:', selectedTrend.name);
-                                            }}
+                                            onClick={handleExploreAll}
                                             className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2"
                                         >
                                             <Search className="w-5 h-5" />
@@ -429,11 +422,8 @@ function VideoModal({ video, onClose }) {
                     <h2 className="text-2xl font-bold mb-2 text-gray-900">{video.title}</h2>
                     <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
                         <span className="font-medium">@{video.creator}</span>
-                        <span>•</span>
                         <span>{video.views.toLocaleString()} views</span>
-                        <span>•</span>
                         <span>{video.likes.toLocaleString()} likes</span>
-                        <span>•</span>
                         <span className="text-green-600 font-medium">
                             {(video.engagement_rate * 100).toFixed(2)}% engagement
                         </span>
