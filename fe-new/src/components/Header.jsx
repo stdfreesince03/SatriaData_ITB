@@ -35,6 +35,12 @@ export default function Header({ activeTab, setActiveTab }) {
                             Explore
                         </button>
                         <button
+                            onClick={() => setActiveTab('insights')}
+                            className={`${activeTab === 'insights' ? 'text-blue-600 font-medium border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'}  cursor-pointer transition-colors`}
+                        >
+                            Insights
+                        </button>
+                        <button
                             onClick={() => setActiveTab('trending')}
                             className={`${activeTab === 'trending' ? 'text-blue-600 font-medium border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'} cursor-pointer transition-colors`}
                         >

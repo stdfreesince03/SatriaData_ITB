@@ -1,10 +1,7 @@
-import HeroSection from '../sections/HeroSection';
-import SearchInterestSection from '../sections/SearchInterestSection';
-import MadeWithTrendsSection from '../sections/MadeWithTrendsSection';
-import GetStartedSection from '../sections/GetStartedSection';
-import NewsletterSection from '../sections/NewsletterSection';
+import HeroSection from "../sections/HeroSection";
+import SearchInterestSection from "../sections/SearchInterestSection";
 import CategoryStoriesSection from "@/components/sections/CategoryStoriesSection";
-import InsightsCarouselSection from '../sections/InsightsCarouselSection';
+import InsightsCarouselSection from "../sections/InsightsCarouselSection";
 
 export default function HomePage({
                                      searchQuery,
@@ -12,7 +9,8 @@ export default function HomePage({
                                      setInputValue,
                                      handleSearch,
                                      isSearching,
-                                     onTrendingTopicClick
+                                     onTrendingTopicClick,
+                                     onOpenInsights,       // <-- passed from App.jsx
                                  }) {
     return (
         <>
@@ -23,13 +21,13 @@ export default function HomePage({
                 handleSearch={handleSearch}
                 isSearching={isSearching}
             />
-            <SearchInterestSection
-                onSearchClick={onTrendingTopicClick}
-            />
-            <InsightsCarouselSection />
-            <CategoryStoriesSection/>
-            {/*<MadeWithTrendsSection />*/}
-            {/*<GetStartedSection />*/}
+
+            <SearchInterestSection onSearchClick={onTrendingTopicClick} />
+
+            {/* Insights carousel lives here */}
+            <InsightsCarouselSection onOpen={onOpenInsights} />
+
+            <CategoryStoriesSection />
         </>
     );
 }
