@@ -148,7 +148,7 @@ async def root():
     }
 
 
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host=config.API_HOST, port=config.API_PORT, reload=True)
+# if __name__ == "__main__":
+#     import uvicorn
+#
+#     uvicorn.run(app, host=config.API_HOST, port=config.API_PORT, reload=True)
