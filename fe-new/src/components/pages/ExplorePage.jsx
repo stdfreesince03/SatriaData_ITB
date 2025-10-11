@@ -21,6 +21,7 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
     const [hashtags, setHashtags] = useState([]);
     const [videos, setVideos] = useState([]);
     const [boxesLoading, setBoxesLoading] = useState(false);
+    const [availableCategories, setAvailableCategories] = useState(['All']);
 
     // Box filter states
     const [topicCategory, setTopicCategory] = useState('All');
@@ -53,8 +54,9 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         } else {
             loadViralVideos();
         }
-    }, [category, sortBy]); // eslint-disable-line
+    }, [category, sortBy]);
 
+    // Reload boxes when box filters change
     // Reload boxes when box filters change
     useEffect(() => {
         if (hasQuery) {
@@ -62,7 +64,8 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         } else {
             loadTopBoxes();
         }
-    }, [topicCategory, creatorCategory, hashtagCategory, videoCategory]); // eslint-disable-line
+    }, [topicCategory, creatorCategory, hashtagCategory, videoCategory]);
+
 
     const loadViralVideos = async () => {
         setLoading(true);
@@ -88,30 +91,31 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
     const loadTopBoxes = async () => {
         setBoxesLoading(true);
         try {
-            const params = {
-                topics: new URLSearchParams({
-                    limit: 10,
-                    ...(topicCategory !== 'All' && { category: topicCategory })
-                }),
-                creators: new URLSearchParams({
-                    limit: 10,
-                    ...(creatorCategory !== 'All' && { category: creatorCategory })
-                }),
-                hashtags: new URLSearchParams({
-                    limit: 10,
-                    ...(hashtagCategory !== 'All' && { category: hashtagCategory })
-                }),
-                videos: new URLSearchParams({
-                    limit: 10,
-                    ...(videoCategory !== 'All' && { category: videoCategory })
-                })
-            };
+            const topicsParams = new URLSearchParams({
+                limit: 10,
+                ...(topicCategory !== 'All' && { category: topicCategory })
+            });
+
+            const creatorsParams = new URLSearchParams({
+                limit: 10,
+                ...(creatorCategory !== 'All' && { category: creatorCategory })
+            });
+
+            const hashtagsParams = new URLSearchParams({
+                limit: 10,
+                ...(hashtagCategory !== 'All' && { category: hashtagCategory })
+            });
+
+            const videosParams = new URLSearchParams({
+                limit: 10,
+                ...(videoCategory !== 'All' && { category: videoCategory })
+            });
 
             const [topicsRes, creatorsRes, hashtagsRes, videosRes] = await Promise.all([
-                fetch(`${API_BASE}/api/trending/top-topics?${params.topics.toString()}`),
-                fetch(`${API_BASE}/api/trending/top-creators?${params.creators.toString()}`),
-                fetch(`${API_BASE}/api/trending/top-hashtags?${params.hashtags.toString()}`),
-                fetch(`${API_BASE}/api/trending/top-videos?${params.videos.toString()}`)
+                fetch(`${API_BASE}/api/trending/top-topics?${topicsParams}`),
+                fetch(`${API_BASE}/api/trending/top-creators?${creatorsParams}`),
+                fetch(`${API_BASE}/api/trending/top-hashtags?${hashtagsParams}`),
+                fetch(`${API_BASE}/api/trending/top-videos?${videosParams}`)
             ]);
 
             const [topicsData, creatorsData, hashtagsData, videosData] = await Promise.all([
@@ -132,37 +136,44 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         }
     };
 
-    const loadRelevantBoxes = async (searchQuery) => {
+    const loadRelevantBoxes = async (searchQuery, filters = null) => {
         setBoxesLoading(true);
         try {
-            const params = {
-                topics: new URLSearchParams({
-                    q: searchQuery,
-                    limit: 10,
-                    ...(topicCategory !== 'All' && { category: topicCategory })
-                }),
-                creators: new URLSearchParams({
-                    q: searchQuery,
-                    limit: 10,
-                    ...(creatorCategory !== 'All' && { category: creatorCategory })
-                }),
-                hashtags: new URLSearchParams({
-                    q: searchQuery,
-                    limit: 10,
-                    ...(hashtagCategory !== 'All' && { category: hashtagCategory })
-                }),
-                videos: new URLSearchParams({
-                    q: searchQuery,
-                    limit: 10,
-                    ...(videoCategory !== 'All' && { category: videoCategory })
-                })
-            };
+            // Use passed filters or current state
+            const topicCat = filters?.topicCategory ?? topicCategory;
+            const creatorCat = filters?.creatorCategory ?? creatorCategory;
+            const hashtagCat = filters?.hashtagCategory ?? hashtagCategory;
+            const videoCat = filters?.videoCategory ?? videoCategory;
+
+            const topicsParams = new URLSearchParams({
+                q: searchQuery,
+                limit: 10,
+                ...(topicCat !== 'All' && { category: topicCat })
+            });
+
+            const creatorsParams = new URLSearchParams({
+                q: searchQuery,
+                limit: 10,
+                ...(creatorCat !== 'All' && { category: creatorCat })
+            });
+
+            const hashtagsParams = new URLSearchParams({
+                q: searchQuery,
+                limit: 10,
+                ...(hashtagCat !== 'All' && { category: hashtagCat })
+            });
+
+            const videosParams = new URLSearchParams({
+                q: searchQuery,
+                limit: 10,
+                ...(videoCat !== 'All' && { category: videoCat })
+            });
 
             const [topicsRes, creatorsRes, hashtagsRes, videosRes] = await Promise.all([
-                fetch(`${API_BASE}/api/trending/relevant-topics?${params.topics.toString()}`),
-                fetch(`${API_BASE}/api/trending/relevant-creators?${params.creators.toString()}`),
-                fetch(`${API_BASE}/api/trending/relevant-hashtags?${params.hashtags.toString()}`),
-                fetch(`${API_BASE}/api/trending/relevant-videos?${params.videos.toString()}`)
+                fetch(`${API_BASE}/api/trending/relevant-topics?${topicsParams}`),
+                fetch(`${API_BASE}/api/trending/relevant-creators?${creatorsParams}`),
+                fetch(`${API_BASE}/api/trending/relevant-hashtags?${hashtagsParams}`),
+                fetch(`${API_BASE}/api/trending/relevant-videos?${videosParams}`)
             ]);
 
             const [topicsData, creatorsData, hashtagsData, videosData] = await Promise.all([
@@ -184,21 +195,24 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
     };
 
     const handleSearch = async (searchQuery) => {
-        const q = (searchQuery || '').trim();
-        if (!q) {
+        if (!searchQuery.trim()) {
             loadViralVideos();
             loadTopBoxes();
+            setAvailableCategories(['All']);
             return;
         }
 
+        window.scrollTo({ top: 0, behavior: 'instant' });
         setLoading(true);
         setShowResults(true);
 
-        onQueryChange?.(q);
+        if (onQueryChange) {
+            onQueryChange(searchQuery);
+        }
 
         try {
             const params = new URLSearchParams({
-                q,
+                q: searchQuery,
                 rows_per_section: '16',
                 sort_by: sortBy,
                 ...(category !== 'All categories' && { category })
@@ -208,8 +222,32 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
             const data = await response.json();
             setSections(data.sections || []);
 
-            // keep boxes perfectly in sync with the exact query used for videos
-            await loadRelevantBoxes(q);
+            // Extract unique categories from search results
+            const categorySet = new Set(['All']);
+            data.sections?.forEach(section => {
+                section.items?.forEach(item => {
+                    if (item.category && item.category !== 'None') {
+                        categorySet.add(item.category);
+                    }
+                });
+            });
+            const categoriesFromResults = Array.from(categorySet);
+            setAvailableCategories(categoriesFromResults);
+
+            const firstCategory = categoriesFromResults.length > 1 ? categoriesFromResults[1] : 'All';
+
+            setTopicCategory(firstCategory);
+            setCreatorCategory(firstCategory);
+            setHashtagCategory(firstCategory);
+            setVideoCategory(firstCategory);
+
+            await loadRelevantBoxes(searchQuery, {
+                topicCategory: firstCategory,
+                creatorCategory: firstCategory,
+                hashtagCategory: firstCategory,
+                videoCategory: firstCategory
+            });
+
         } catch (error) {
             console.error('Search failed:', error);
         } finally {
@@ -217,15 +255,21 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         }
     };
 
-    // <<< Use onKeyDown, read the live value, then call handleSearch with it >>>
+    // const handleKeyPress = (e) => {
+    //     if (e.key === 'Enter') {
+    //         handleSearch(query);
+    //     }
+    // };
+
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            const v = e.currentTarget.value;
-            setQuery(v);
-            handleSearch(v);
+            const v = e.currentTarget.value.trim();
+            setQuery(v);          // keep the input controlled
+            handleSearch(v);      // use the *live* value, not possibly-stale state
         }
     };
+
 
     const handleBoxItemClick = (text) => {
         setQuery(text);
@@ -244,7 +288,7 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
         'Pets & Veterinary'
     ];
 
-    const boxCategories = ['All', ...categories.slice(1)];
+    const boxCategories = hasQuery ? availableCategories : ['All', ...categories.slice(1)];
 
     return (
         <section className="px-6 py-8 bg-gray-50 min-h-screen">
@@ -255,7 +299,7 @@ export default function ExplorePage({ initialQuery = '', onQueryChange }) {
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={handleKeyDown}   // <-- swapped from onKeyPress
+                        onKeyDown={handleKeyDown}
                         placeholder="Add a search term"
                         className="w-full text-xl text-gray-700 outline-none"
                     />
@@ -451,7 +495,10 @@ function InfoBox({ title, icon, items, loading, renderItem, emptyMessage, filter
                 {filterOptions && (
                     <select
                         value={filterValue}
-                        onChange={(e) => onFilterChange(e.target.value)}
+                        onChange={(e) => {
+                            onFilterChange(e.target.value);
+                            e.target.blur(); // Remove focus after selection
+                        }}
                         className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                         {filterOptions.map(opt => (
