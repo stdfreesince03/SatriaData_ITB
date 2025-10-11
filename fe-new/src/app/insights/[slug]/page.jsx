@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
-import InsightsPage from "@/components/InsightsPage"; // adjust import path if needed
+import InsightsPage from "@/components/pages/InsightsPage";
+
 
 export default function Page({ params }) {
     const router = useRouter();
