@@ -1,21 +1,26 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, Tag } from "lucide-react";
 
 export default function InsightsPage({ initialSlug = null, onBack = () => {} }) {
     const [items, setItems] = useState([]);
     const [active, setActive] = useState(null);
 
     useEffect(() => {
-        // Load manifest from /public
         fetch("/insights/manifest.json")
-            .then(r => r.json())
-            .then(data => {
-                const list = data?.items || [];
+            .then((r) => r.json())
+            .then((data) => {
+                // Normalize keys from the manifest
+                const list = (data?.items || []).map((x) => ({
+                    ...x,
+                    teaser: x.teaser || x.summary || "",
+                    description: x.description || x.details || "",
+                    tags: x.tags || [],
+                }));
                 setItems(list);
                 const first = initialSlug
-                    ? list.find(x => x.slug === initialSlug) || list[0]
+                    ? list.find((x) => x.slug === initialSlug) || list[0]
                     : list[0];
                 setActive(first || null);
             })
@@ -23,17 +28,35 @@ export default function InsightsPage({ initialSlug = null, onBack = () => {} }) 
     }, [initialSlug]);
 
     const idx = useMemo(
-        () => (active ? items.findIndex(x => x.slug === active.slug) : -1),
+        () => (active ? items.findIndex((x) => x.slug === active.slug) : -1),
         [active, items]
     );
 
-    const goNext = () => {
+    const go = (dir) => {
         if (!items.length) return;
-        setActive(items[(idx + 1) % items.length]);
+        const next = (idx + (dir === "next" ? 1 : -1) + items.length) % items.length;
+        setActive(items[next]);
     };
-    const goPrev = () => {
-        if (!items.length) return;
-        setActive(items[(idx - 1 + items.length) % items.length]);
+
+    const renderDescription = (desc) => {
+        if (Array.isArray(desc)) {
+            return desc.map((p, i) => (
+                <p key={i} className="mb-3">
+                    {p}
+                </p>
+            ));
+        }
+        if (typeof desc === "string") {
+            return desc
+                .split(/\n\s*\n/) // split paragraphs
+                .filter(Boolean)
+                .map((p, i) => (
+                    <p key={i} className="mb-3">
+                        {p}
+                    </p>
+                ));
+        }
+        return null;
     };
 
     return (
@@ -49,7 +72,9 @@ export default function InsightsPage({ initialSlug = null, onBack = () => {} }) 
                         <span>Kembali</span>
                     </button>
                     <div className="ml-auto text-sm text-gray-500">
-                        {idx >= 0 && items.length > 0 ? `Insight ${idx + 1} / ${items.length}` : ""}
+                        {idx >= 0 && items.length > 0
+                            ? `Insight ${idx + 1} / ${items.length}`
+                            : ""}
                     </div>
                 </div>
             </div>
@@ -63,7 +88,7 @@ export default function InsightsPage({ initialSlug = null, onBack = () => {} }) 
                             <h2 className="text-sm font-semibold text-gray-900">Daftar Insight</h2>
                         </div>
                         <nav className="divide-y">
-                            {items.map(item => (
+                            {items.map((item) => (
                                 <button
                                     key={item.slug}
                                     onClick={() => setActive(item)}
@@ -73,7 +98,7 @@ export default function InsightsPage({ initialSlug = null, onBack = () => {} }) 
                                 >
                                     <div className="flex-1">
                                         <p className="text-sm font-medium text-gray-900">{item.title}</p>
-                                        <p className="text-xs text-gray-500 line-clamp-2">{item.summary}</p>
+                                        <p className="text-xs text-gray-500 line-clamp-2">{item.teaser}</p>
                                     </div>
                                     <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                                 </button>
@@ -90,33 +115,55 @@ export default function InsightsPage({ initialSlug = null, onBack = () => {} }) 
                         </div>
                     ) : (
                         <article className="bg-white border rounded-xl overflow-hidden">
+                            {/* Title + teaser */}
                             <div className="p-6 border-b">
                                 <h1 className="text-2xl font-semibold text-gray-900">{active.title}</h1>
-                                <p className="mt-2 text-sm text-gray-600">{active.summary}</p>
+                                {active.teaser ? (
+                                    <p className="mt-2 text-sm text-gray-600">{active.teaser}</p>
+                                ) : null}
+
+                                {/* Tags */}
+                                {active.tags?.length ? (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {active.tags.map((t) => (
+                                            <span
+                                                key={t}
+                                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700"
+                                            >
+                        <Tag className="w-3 h-3" />
+                                                {t}
+                      </span>
+                                        ))}
+                                    </div>
+                                ) : null}
                             </div>
 
+                            {/* Image with smart sizing (contain + max height) */}
                             <div className="p-6">
-                                <div className="relative w-full overflow-hidden rounded-lg border">
-                                    {/* Use next/image for optimisation; images live in /public/insights */}
-                                    <Image
-                                        src={active.image}
-                                        alt={active.title}
-                                        width={1600}
-                                        height={900}
-                                        className="w-full h-auto"
-                                        priority
-                                    />
+                                <div
+                                    className="relative w-full grid place-items-center overflow-hidden rounded-lg border bg-gray-50"
+                                    style={{
+                                        // keeps big images reasonable, small ones centered
+                                        maxHeight: "70vh",
+                                        minHeight: "320px",
+                                    }}
+                                >
+                                    <div className="relative w-full h-full" style={{ height: "min(70vh, 720px)" }}>
+                                        <Image
+                                            src={active.image}
+                                            alt={active.title}
+                                            fill
+                                            sizes="(max-width: 1024px) 100vw, 960px"
+                                            className="object-contain"
+                                            priority
+                                        />
+                                    </div>
                                 </div>
 
-                                {/* Long explanation */}
-                                {active.details?.length ? (
-                                    <div className="mt-6">
-                                        <h3 className="text-base font-semibold text-gray-900 mb-2">Penjelasan</h3>
-                                        <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
-                                            {active.details.map((d, i) => (
-                                                <li key={i}>{d}</li>
-                                            ))}
-                                        </ul>
+                                {/* Long description from manifest */}
+                                {active.description ? (
+                                    <div className="mt-6 prose prose-sm max-w-none prose-p:leading-relaxed">
+                                        {renderDescription(active.description)}
                                     </div>
                                 ) : null}
 
@@ -124,13 +171,13 @@ export default function InsightsPage({ initialSlug = null, onBack = () => {} }) 
                                 <div className="mt-8 flex items-center justify-between">
                                     <button
                                         className="px-4 py-2 rounded-lg border hover:bg-gray-50 text-sm"
-                                        onClick={goPrev}
+                                        onClick={() => go("prev")}
                                     >
                                         Sebelumnya
                                     </button>
                                     <button
                                         className="px-4 py-2 rounded-lg border hover:bg-gray-50 text-sm"
-                                        onClick={goNext}
+                                        onClick={() => go("next")}
                                     >
                                         Selanjutnya
                                     </button>
