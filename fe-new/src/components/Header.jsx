@@ -12,12 +12,12 @@ export default function Header({ activeTab, setActiveTab }) {
                 <div className="flex items-center gap-6">
                     <Menu className="w-6 h-6 text-gray-600 cursor-pointer" />
                     <div className="flex items-center gap-2">
-                        <Image src='/gajah_itb.png' alt={"Logo Gajah ITB"}  width={32}
-                               height={32}
-                               className="h-14 w-auto"
-                               priority/>
+                        {/*<Image src='/gajah_itb.png' alt={"Logo Gajah ITB"}  width={32}*/}
+                        {/*       height={32}*/}
+                        {/*       className="h-14 w-auto"*/}
+                        {/*       priority/>*/}
                         <div className={`${baloo.className} text-itb text-3xl leading-none tracking-tight`}>
-                            ITB
+                            SatDat
                             Trends
                         </div>
                     </div>
