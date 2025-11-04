@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 from typing import Dict, Any, List
 import pandas as pd
+import numpy as np
 import os
 import random
 from utils.text_processing import normalize_text, as_list
@@ -11,16 +12,22 @@ router = APIRouter(prefix="/api", tags=["explore"])
 
 # Will be set by main.py
 df = None
+faiss_index = None
+embedding_model = None
 
 
-def set_globals(dataframe):
+def set_globals(dataframe, index=None, model=None):
     """Set module-level globals from main"""
-    global df
+    global df, faiss_index, embedding_model
     df = dataframe
+    faiss_index = index
+    embedding_model = model
 
 
 def _safe_int(x):
     try:
+        if pd.isna(x):
+            return 0
         return int(x)
     except Exception:
         return 0
@@ -28,7 +35,12 @@ def _safe_int(x):
 
 def _safe_float(x):
     try:
-        return float(x)
+        if pd.isna(x):
+            return 0.0
+        val = float(x)
+        if np.isinf(val):
+            return 0.0
+        return val
     except Exception:
         return 0.0
 
@@ -70,35 +82,121 @@ def _ensure_cols(df: pd.DataFrame):
 
 
 def _video_card(row: pd.Series) -> Dict[str, Any]:
+    """Convert DataFrame row to video card - with proper None/NaN handling"""
     import re
-    title = (row.get("caption") or row.get("full_text") or "")
-    title = re.sub(r"\s+", " ", str(title)).strip()
-
-    embed_url = row.get("embed_url")
-    thumbnail_url = row.get("thumbnail_url")
-    video_url = embed_url if pd.notna(embed_url) else row.get("display_url")
-    thumbnail = thumbnail_url if pd.notna(thumbnail_url) else row.get("display_url")
-
+    
+    # FIXED: Proper title handling to avoid "nan"
+    caption = row.get("caption")
+    full_text = row.get("full_text")
+    text = row.get("text")
+    
+    title = None
+    
+    # Try caption first
+    if pd.notna(caption) and str(caption).strip() and str(caption).lower() != 'nan':
+        title = str(caption).strip()
+    # Try text next
+    elif pd.notna(text) and str(text).strip() and str(text).lower() != 'nan':
+        title = str(text).strip()
+    # Try full_text
+    elif pd.notna(full_text) and str(full_text).strip() and str(full_text).lower() != 'nan':
+        title = str(full_text).strip()
+    
+    # Fallback if still no title
+    if not title:
+        category = row.get("category")
+        if pd.notna(category) and str(category).strip() and str(category).lower() not in ['nan', 'none', '']:
+            title = f"{category} video"
+        else:
+            title = "Video"
+    
+    # Clean up whitespace
+    title = re.sub(r"\s+", " ", title).strip()
+    
+    # Truncate to first 5 words
     words = title.split()
     if len(words) > 5:
         title = ' '.join(words[:5]) + "..."
     else:
         title = ' '.join(words)
 
+    embed_url = row.get("embed_url")
+    thumbnail_url = row.get("thumbnail_url")
+    video_url = embed_url if pd.notna(embed_url) else row.get("display_url")
+    thumbnail = thumbnail_url if pd.notna(thumbnail_url) else row.get("display_url")
+
     return {
         "id": _safe_int(row.get("Id")),
         "title": title,
-        "creator": row.get("owner_username"),
-        "category": row.get("category"),
+        "creator": str(row.get("owner_username", "")).strip() or "Unknown",
+        "category": str(row.get("category", "")).strip() or "General",
         "views": _safe_int(row.get("view_count")),
         "likes": _safe_int(row.get("like_count")),
         "engagement_rate": round(_safe_float(row.get("engagement_rate")), 5),
-        "thumbnail": thumbnail,
-        "video_url": video_url,
-        "embed_url": embed_url,
-        "instagram_url": row.get("display_url"),
+        "thumbnail": thumbnail if pd.notna(thumbnail) else "",
+        "video_url": video_url if pd.notna(video_url) else "",
+        "embed_url": embed_url if pd.notna(embed_url) else None,
+        "instagram_url": row.get("display_url") if pd.notna(row.get("display_url")) else "",
         "hashtags": as_list(row.get("hashtags")),
     }
+
+
+def _semantic_search_section(q: str, per_row: int, exclude_ids: set) -> Dict[str, Any] | None:
+    """
+    NEW: FAISS semantic search section
+    Returns videos similar by MEANING, not just keywords
+    """
+    if faiss_index is None or embedding_model is None:
+        print("   ⚠️ FAISS not available, skipping semantic section")
+        return None
+    
+    try:
+        # Encode query
+        query_embedding = embedding_model.encode(
+            [q],
+            normalize_embeddings=True,
+            show_progress_bar=False
+        ).astype('float32')
+        
+        # Search FAISS
+        distances, indices = faiss_index.search(query_embedding, k=per_row * 3)
+        
+        # Get results
+        results_df = df.iloc[indices[0]].copy()
+        
+        # Clean NaN similarity scores
+        similarity_scores = np.nan_to_num(distances[0], nan=0.0, posinf=0.0, neginf=0.0)
+        results_df['similarity_score'] = similarity_scores
+        
+        # Exclude already shown videos
+        if exclude_ids:
+            results_df = results_df[~results_df['Id'].isin(exclude_ids)]
+        
+        if results_df.empty:
+            return None
+        
+        # Take top results
+        results_df = results_df.head(per_row)
+        
+        items = []
+        for _, row in results_df.iterrows():
+            card = _video_card(row)
+            similarity = _safe_float(row.get('similarity_score', 0))
+            card['similarity_score'] = round(similarity, 4)
+            items.append(card)
+        
+        print(f"   ✓ Semantic section: {len(items)} videos")
+        
+        return {
+            "key": "semantic",
+            "title": f"Related to \"{q}\"",
+            "reason": "FAISS",
+            "items": items
+        }
+        
+    except Exception as e:
+        print(f"   ❌ Semantic search error: {e}")
+        return None
 
 
 def _section_by_category(df: pd.DataFrame, q: str, per_row: int) -> Dict[str, Any] | None:
@@ -170,8 +268,7 @@ def _section_spotlight(df: pd.DataFrame, per_row: int) -> Dict[str, Any]:
     return {"key": "spotlight", "title": "Now Trending", "reason": "High engagement overall", "items": items}
 
 
-def _section_more_from_category(df: pd.DataFrame, dominant_category: str, per_row: int, exclude_ids: set) -> Dict[
-                                                                                                                 str, Any] | None:
+def _section_more_from_category(df: pd.DataFrame, dominant_category: str, per_row: int, exclude_ids: set) -> Dict[str, Any] | None:
     """Return random videos from the dominant category, excluding already shown videos."""
     if not dominant_category or dominant_category == "None" or pd.isna(dominant_category):
         return None
@@ -202,46 +299,71 @@ def _section_more_from_category(df: pd.DataFrame, dominant_category: str, per_ro
 
 @router.get("/explore")
 def explore(q: str = Query(..., min_length=1), rows_per_section: int = 16):
-    """Netflix-style Explore: returns rows grouped by category/creator/hashtag/text."""
-    print(f"🔍 DEBUG: explore() called with q={q}, rows_per_section={rows_per_section}")
-    print(f"🔍 DEBUG: df is None? {df is None}")
+    """
+    ENHANCED: Netflix-style Explore with SEMANTIC SEARCH + all keyword matching
+    
+    Now includes:
+    1. Category matches (keyword)
+    2. Creator matches (keyword)
+    3. Hashtag matches (keyword)
+    4. Text matches (keyword)
+    5. SEMANTIC MATCHES (FAISS) ← NEW!
+    6. More from category
+    """
+    print(f"🔍 EXPLORE: q='{q}', rows_per_section={rows_per_section}")
+    print(f"   FAISS available: {faiss_index is not None and embedding_model is not None}")
 
     if df is None:
         return {"query": q, "sections": []}
-
-    print(f"🔍 DEBUG: df.shape = {df.shape}")
-    print(f"🔍 DEBUG: df.columns = {list(df.columns)[:10]}...")
 
     data = _ensure_cols(df.copy())
     sections: List[Dict[str, Any]] = []
     all_shown_ids = set()
 
+    # 1. CATEGORY SECTION (keyword match)
     cat = _section_by_category(data, q, rows_per_section)
     if cat:
         sections.append(cat)
         all_shown_ids.update(item["id"] for item in cat["items"])
+        print(f"   ✓ Category section: {len(cat['items'])} videos")
 
+    # 2. CREATOR SECTIONS (keyword match)
     creator_sections = _section_by_creator(data, q, min(rows_per_section, 12))
     for sec in creator_sections:
         sections.append(sec)
         all_shown_ids.update(item["id"] for item in sec["items"])
+    if creator_sections:
+        print(f"   ✓ Creator sections: {len(creator_sections)} sections")
 
+    # 3. HASHTAG SECTIONS (keyword match)
     hashtag_sections = _section_by_hashtag(data, q, min(rows_per_section, 12))
     for sec in hashtag_sections:
         sections.append(sec)
         all_shown_ids.update(item["id"] for item in sec["items"])
+    if hashtag_sections:
+        print(f"   ✓ Hashtag sections: {len(hashtag_sections)} sections")
 
+    # 4. TEXT SECTION (keyword match)
     txt = _section_by_text(data, q, rows_per_section)
     if txt:
         sections.append(txt)
         all_shown_ids.update(item["id"] for item in txt["items"])
+        print(f"   ✓ Text section: {len(txt['items'])} videos")
 
+    # 5. ⭐ NEW: SEMANTIC SECTION (FAISS - finds related content by meaning)
+    semantic = _semantic_search_section(q, rows_per_section, all_shown_ids)
+    if semantic:
+        sections.append(semantic)
+        all_shown_ids.update(item["id"] for item in semantic["items"])
+
+    # 6. FALLBACK: If no results, show trending
     if not sections:
         spotlight = _section_spotlight(data, rows_per_section)
         sections.append(spotlight)
         all_shown_ids.update(item["id"] for item in spotlight["items"])
+        print(f"   ⚠️ No matches, showing trending: {len(spotlight['items'])} videos")
 
-    # De-dup existing sections
+    # De-duplicate existing sections
     for s in sections:
         seen = set()
         uniq = []
@@ -263,11 +385,9 @@ def explore(q: str = Query(..., min_length=1), rows_per_section: int = 16):
     if category_counts:
         # Sort categories by count and take TOP 2
         sorted_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:2]
-        print(f"📊 Top 2 categories in results:")
-        for cat, count in sorted_categories:
-            print(f"   - {cat}: {count} videos")
+        print(f"   📊 Top 2 categories: {[c[0] for c in sorted_categories]}")
 
-        # Add "More from category" section for TOP 2 categories only
+        # Add "More from category" section for TOP 2 categories
         for cat_name, count in sorted_categories:
             more_section = _section_more_from_category(
                 data,
@@ -278,7 +398,12 @@ def explore(q: str = Query(..., min_length=1), rows_per_section: int = 16):
             if more_section:
                 sections.append(more_section)
                 all_shown_ids.update(item["id"] for item in more_section["items"])
-                print(f"✅ Added 'More from {cat_name}' section with {len(more_section['items'])} videos")
+                print(f"   ✓ More from {cat_name}: {len(more_section['items'])} videos")
 
-    print(f"✅ Returning {len(sections)} sections with {sum(len(s['items']) for s in sections)} total videos")
-    return {"query": q, "sections": sections}
+    total_videos = sum(len(s['items']) for s in sections)
+    print(f"✅ Returning {len(sections)} sections with {total_videos} total videos")
+    
+    return {
+        "query": q,
+        "sections": sections
+    }

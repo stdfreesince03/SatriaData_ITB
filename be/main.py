@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import faiss
+import numpy as np
+from sentence_transformers import SentenceTransformer
 import pandas as pd
 import json
 import re
@@ -17,6 +20,9 @@ topics_data = None
 hashtag_stats = None
 doc_topics = None
 topic_keywords = {}
+faiss_index = None
+embedding_model = None
+embeddings = None
 
 
 @asynccontextmanager
@@ -101,9 +107,38 @@ async def lifespan(app: FastAPI):
     # Extract keywords
     topic_keywords = extract_topic_keywords(df, topics_data)
 
+    try:
+        # Load FAISS index
+        faiss_index_path = f"{config.ARTIFACTS_DIR}/faiss.index"
+        faiss_index = faiss.read_index(faiss_index_path)
+        print(f"✅ Loaded FAISS index: {faiss_index.ntotal:,} vectors")
+        
+        # Load embeddings (optional)
+        embeddings_path = f"{config.ARTIFACTS_DIR}/embeddings.npy"
+        embeddings = np.load(embeddings_path)
+        print(f"✅ Loaded embeddings: {embeddings.shape}")
+        
+        # Load embedding model
+        model_name = 'firqaaa/indo-sentence-bert-base'
+        print(f"⏳ Loading embedding model: {model_name}...")
+        embedding_model = SentenceTransformer(model_name)
+        print(f"✅ Loaded embedding model")
+        
+        # Verify alignment
+        if faiss_index.ntotal != len(df):
+            print(f"⚠️ Warning: FAISS vectors ({faiss_index.ntotal}) != DataFrame rows ({len(df)})")
+        
+        print("✅ FAISS setup complete!")
+        
+    except Exception as e:
+        print(f"❌ Error loading FAISS: {e}")
+        faiss_index = None
+        embedding_model = None
+        embeddings = None
+
     # Share with route modules
     search.set_globals(topic_keywords, hashtag_stats, topics_data)
-    explore.set_globals(df)
+    explore.set_globals(df, faiss_index, embedding_model) 
     trending.set_globals(df)
     events.set_globals(event_data,df)
 
@@ -141,6 +176,7 @@ async def root():
     return {
         "message": "Shorts Analytics API",
         "status": "running",
+        "faiss_enabled": faiss_index is not None,  # NEW
         "endpoints": {
             "random_suggestions": "/api/search/random-suggestions?limit=5",
             "search_suggestions": "/api/search/suggestions?q=beauty&limit=10",
@@ -149,7 +185,7 @@ async def root():
     }
 
 
-# if __name__ == "__main__":
-#     import uvicorn
-#
-#     uvicorn.run(app, host=config.API_HOST, port=config.API_PORT, reload=True)
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("main:app", host=config.API_HOST, port=config.API_PORT, reload=True)
